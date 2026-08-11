@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/
