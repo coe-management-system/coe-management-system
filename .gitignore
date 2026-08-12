@@ -1,3 +1,13 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build outputs
+.next/
+out/
+build/
+dist/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -9,24 +19,32 @@ env/
 
 # Environment
 .env
-
-# IDE
-.vscode/
-.idea/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Testing
 .pytest_cache/
 .coverage
 
-# Node
-node_modules/
-.next/
-dist/
-build/
-
 # Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 *.log
 
-# OS
+# Archive files
+*.zip
+
+# IDE & OS
 .DS_Store
 Thumbs.db
+*.pem
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
