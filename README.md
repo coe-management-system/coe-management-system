@@ -6,7 +6,7 @@
 
 ---
 
-## 📌 Official Project Overview
+## 1. Project Overview
 
 An enterprise-grade academic decision-support platform designed to streamline Center of Excellence tracking, student management, faculty workload distribution, training certifications, and institutional operational analytics.
 
@@ -14,52 +14,88 @@ The system empowers academic leadership and department heads with real-time oper
 
 ---
 
-## 🎯 Key Objectives
+## 2. System Architecture
 
-1. **Unified Operational Visibility**: Centralize student throughput, attendance, faculty load, and CoE certification tracking into a single visual dashboard.
-2. **Decision Support Analytics**: Provide real-time alerts and Recharts visualizations for proactive capacity planning and resource allocation.
-3. **Student 360 Tracking**: Deliver operational profiles detailing attendance metrics, enrolled CoE training tracks, verified credentials, and skill matrices.
-4. **Decoupled Architecture**: Abstract all frontend data services via TypeScript interfaces to enable seamless integration with FastAPI backend services.
+The primary architecture is:
+
+```
+Frontend (Next.js)
+   ↓
+src/lib/api.ts
+   ↓
+FastAPI (http://127.0.0.1:8000)
+   ↓
+Application Services
+   ↓
+SQLAlchemy ORM
+   ↓
+PostgreSQL
+```
+
+Database schema changes are managed using Alembic.
+
+AI functionality follows:
+
+```
+User
+   ↓
+AI Assistant
+   ↓
+Controlled AI Tools
+   ↓
+FastAPI
+   ↓
+Application Services
+   ↓
+PostgreSQL
+```
+
+AI components do not directly access the PostgreSQL database.
 
 ---
 
-## 🛠️ Technology Stack
+## 3. Technology Stack
 
+### Frontend
 - **Framework**: Next.js 14.2.35 (App Router)
 - **Language**: TypeScript 5.x
 - **UI Library**: React 19
-- **Styling**: Tailwind CSS 3.4.1 (Vanilla CSS tokens, zero third-party UI framework dependencies)
+- **Styling**: Tailwind CSS 3.4.1
 - **Icons**: Lucide React (`lucide-react`)
 - **Data Visualizations**: Recharts 2.15.1
 - **Package Manager**: npm 10.x
 
+### Backend
+- **Language**: Python 3.13 / 3.10
+- **Framework**: FastAPI
+- **ORM**: SQLAlchemy
+- **Migrations**: Alembic
+- **Database**: PostgreSQL
+- **Validation**: Pydantic
+
+### Infrastructure & Dev
+- **Containers**: Docker / Docker Compose
+- **VCS**: Git & GitHub
+
 ---
 
-## 🚀 Current Day 1 Frontend Implementation
-
-- **M4-01 — Next.js Foundation**: Clean Next.js 14 App Router project setup with strict TypeScript configurations and Tailwind CSS.
-- **M4-02 — Shared Application Shell**: Enterprise navigation layout featuring responsive sidebar (12 module routes), institutional header, active route tracking, and context isolation for `/login`.
-- **M4-03 — Login UI (`/login`)**: Institutional authentication portal with email format and password min-length validation, visibility toggle, error alert state, and mock session redirect.
-- **M4-04 — Operational Dashboard (`/dashboard`)**: 7 KPI metric cards, 4 Recharts visual charts (Department Attendance, Monthly Trajectory, Training/Cert Funnel, Faculty Workload), Critical Operational Alerts, and Center of Excellence (Palo Alto & Red Hat) summary blocks.
-- **M4-05 — Student Management (`/students` & `/students/[id]`)**: Searchable student directory table with real-time text query search across Name, Roll #, and Email, combined multi-attribute dropdown filters (Department, Batch, Group), data table pagination, and full Student 360 operational profile views.
-- **M4-06 — API Service Abstraction**: Strongly-typed TypeScript interfaces (`src/types/`) and decoupled async mock data services (`src/lib/api/`) enabling future backend hookup without UI refactoring.
-- **Placeholder Modules**: 10 structural placeholder pages for unbuilt operational modules to prevent 404 navigation errors across all sidebar items.
-
----
-
-## 📁 Repository Structure
+## 4. Repository Structure
 
 ```
 coe-management-system/
 ├── README.md
 ├── .gitignore
+├── docker-compose.yml
 ├── docs/
-│   ├── DAY_1_DOCUMENTATION.md
-│   └── frontend/
-│       └── day-1.md
+│   ├── member4-day1-documentation.md
+│   └── member4-day1-documentation.docx
+├── backend/
+│   ├── app/
+│   ├── alembic/
+│   └── requirements.txt
 └── frontend/
     ├── package.json
-    ├── next.config.ts
+    ├── next.config.mjs
     ├── tailwind.config.ts
     ├── tsconfig.json
     ├── postcss.config.mjs
@@ -70,6 +106,11 @@ coe-management-system/
         │   ├── students/
         │   │   └── [id]/
         │   ├── departments/
+        │   ├── batches/
+        │   ├── groups/
+        │   ├── imports/
+        │   ├── scheduling/
+        │   ├── what-if/
         │   ├── attendance/
         │   ├── training/
         │   ├── certification/
@@ -89,20 +130,18 @@ coe-management-system/
         │   ├── students/
         │   └── charts/
         ├── lib/
-        │   ├── api/
+        │   ├── api.ts
         │   └── mock-data/
         └── types/
+            ├── index.ts
+            └── student.ts
 ```
 
 ---
 
-## 💻 How to Run Locally
+## 5. Development Setup & How to Run Locally
 
-### Prerequisites
-- Node.js 18.x or higher
-- npm 9.x or higher
-
-### Installation & Running
+### Frontend Setup
 
 1. **Navigate to the frontend directory**:
    ```bash
@@ -126,45 +165,59 @@ coe-management-system/
    npm run build
    ```
 
+### Backend Setup
+
+1. **Navigate to backend**:
+   ```bash
+   cd backend
+   python -m venv .venv
+   ```
+
+2. **Activate virtual environment**:
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+3. **Install requirements**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Start uvicorn server**:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
 ---
 
-## 🔗 Available Routes
+## 6. Available Frontend Routes
 
 | Route | Purpose | Current Status |
 | :--- | :--- | :--- |
 | `/login` | Institutional Authentication Portal | **FUNCTIONAL** (Mock Auth) |
-| `/dashboard` | Operational Decision Support Dashboard | **FUNCTIONAL** (Mock Data) |
-| `/students` | Searchable & Filterable Student Directory | **FUNCTIONAL** (Mock Data) |
-| `/students/[id]` | Student 360 Operational Profile | **FUNCTIONAL** (Mock Data) |
-| `/departments` | Department Operations | **PLACEHOLDER** |
-| `/attendance` | Student & Faculty Attendance | **PLACEHOLDER** |
-| `/training` | CoE Training Programs Catalog | **PLACEHOLDER** |
-| `/certification` | Industry Credential Verification | **PLACEHOLDER** |
-| `/timetable` | Schedule & Timetable Optimization | **PLACEHOLDER** |
-| `/workload` | Faculty Workload & Capacity | **PLACEHOLDER** |
-| `/coe` | Center of Excellence Hub Management | **PLACEHOLDER** |
-| `/reports` | Institutional Compliance & Exporter | **PLACEHOLDER** |
-| `/ai-assistant` | AI Assistant Query Engine | **PLACEHOLDER** |
-| `/settings` | System Settings & Governance | **PLACEHOLDER** |
+| `/dashboard` | Operational Decision Support Dashboard | **FUNCTIONAL** (KPIs & Visualizations) |
+| `/students` | Searchable & Filterable Student Directory | **FUNCTIONAL** (API & Mock Fallback) |
+| `/students/[id]` | Student 360 Operational Profile | **FUNCTIONAL** (Readiness & Attendance) |
+| `/departments` | Department Directory (Code, Name, Description, HOD) | **FUNCTIONAL** |
+| `/batches` | Academic Batches (Batch, Year, Department) | **FUNCTIONAL** |
+| `/groups` | Student Groups (Group, Batch, Department) | **FUNCTIONAL** |
+| `/attendance` | Student & Faculty Attendance | **SHELL PLACEHOLDER** |
+| `/training` | CoE Training Programs Catalog | **SHELL PLACEHOLDER** |
+| `/certification` | Industry Credential Verification | **SHELL PLACEHOLDER** |
+| `/timetable` | Schedule & Timetable Optimization | **SHELL PLACEHOLDER** |
+| `/workload` | Faculty Workload & Capacity | **SHELL PLACEHOLDER** |
+| `/scheduling` | Automated Resource Scheduling | **SHELL PLACEHOLDER** |
+| `/imports` | Data Imports & Processing | **SHELL PLACEHOLDER** |
+| `/what-if` | Scenario Simulation Engine | **SHELL PLACEHOLDER** |
+| `/coe` | Center of Excellence Hub Management | **SHELL PLACEHOLDER** |
+| `/reports` | Institutional Compliance & Exporter | **SHELL PLACEHOLDER** |
+| `/ai-assistant` | AI Assistant Query Engine | **SHELL PLACEHOLDER** |
+| `/settings` | System Settings & Governance | **SHELL PLACEHOLDER** |
 
 ---
 
-## ⚠️ Current Limitations
+## 7. Documentation
 
-- **Simulated Mock Data Only**: All metrics, student records, attendance figures, and certification counts are simulated in `src/lib/mock-data/`. No live database or backend connection is active in Day 1.
-- **Client-Side State**: Authentication state and search filter states exist in client memory and reset upon hard refresh.
-- **Placeholder Routes**: 10 remaining modules are structural placeholders displaying "Planned for Future Phase" notices.
-
----
-
-## 🗺️ Future Development Roadmap
-
-- **Phase 2 — Backend REST API Integration**: Connect `src/lib/api/` services to PostgreSQL databases and FastAPI REST endpoints.
-- **Phase 3 — Interactive Module Screens**: Implement full feature UI screens for `/attendance`, `/training`, `/certification`, `/workload`, `/timetable`, and `/coe`.
-- **Phase 4 — AI & Optimization Engine**: Implement timetable auto-scheduling algorithms and AI conversational assistant.
-
----
-
-## 📄 Documentation
-
-For full architectural, component, and API layer documentation, view [docs/DAY_1_DOCUMENTATION.md](file:///C:/Users/Sachin%20Kumar/.gemini/antigravity/scratch/coe-management-system/docs/DAY_1_DOCUMENTATION.md).
+Full Member 4 Day 1 Progress Documentation is available in:
+- `docs/member4-day1-documentation.md`
+- `docs/member4-day1-documentation.docx`
