@@ -6,7 +6,7 @@ from app.api.routes.departments import router as departments_router
 from app.api.routes.batches import router as batches_router
 from app.api.routes.groups import router as groups_router
 from app.api.routes.faculty import router as faculty_router
-
+from app.api.routes.auth import router as auth_router
 
 app = FastAPI(
     title="COE Management System",
@@ -41,5 +41,10 @@ app.include_router(
 
 app.include_router(
     faculty_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    auth_router,
     prefix="/api/v1",
 )
