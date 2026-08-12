@@ -1,13 +1,32 @@
-.env
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
 .venv/
 venv/
-__pycache__/
-*.pyc
+env/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Node
 node_modules/
 .next/
 dist/
 build/
-.pytest_cache/
-.mypy_cache/
-.vscode/
-.idea/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
