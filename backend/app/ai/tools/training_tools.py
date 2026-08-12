@@ -1,12 +1,12 @@
-from typing import Dict, Any, Optional
-
-mock_training = {
-    "CSE101": {"status": "In Progress", "module": "Advanced Python", "completion_percentage": 60},
-    "CSE102": {"status": "Completed", "module": "Data Structures", "completion_percentage": 100}
-}
-
-def get_training_status(student_id: str) -> Optional[Dict[str, Any]]:
+def get_training_status(student_id: str):
     """
-    Returns the training status for a given student ID.
+    Returns the training status for a specific student.
     """
-    return mock_training.get(student_id.upper())
+    # Mock data for prototype.
+    # In production, this will call the FastAPI/service layer connected to PostgreSQL.
+    return {
+        "student_id": student_id,
+        "completed_trainings": ["Python Basics", "Web Development"],
+        "ongoing_trainings": ["Machine Learning"],
+        "pending_trainings": ["Cloud Computing"]
+    }

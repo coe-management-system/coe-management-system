@@ -1,12 +1,21 @@
-from typing import Dict, Any, Optional
-
-mock_certifications = {
-    "CSE101": {"certification": "AWS Cloud Practitioner", "status": "Not Started"},
-    "CSE102": {"certification": "AWS Cloud Practitioner", "status": "Certified"}
-}
-
-def get_certification_status(student_id: str) -> Optional[Dict[str, Any]]:
+def get_certification_status(student_id: str):
     """
-    Returns the certification status for a given student ID.
+    Returns the certification status for a specific student.
     """
-    return mock_certifications.get(student_id.upper())
+    # Mock data for prototype.
+    # In production, this will call the FastAPI/service layer connected to PostgreSQL.
+    return {
+        "student_id": student_id,
+        "certifications": [
+            {
+                "name": "AWS Certified Cloud Practitioner",
+                "status": "Completed",
+                "date": "2023-10-15"
+            },
+            {
+                "name": "Google Cloud Associate Engineer",
+                "status": "In Progress",
+                "date": None
+            }
+        ]
+    }

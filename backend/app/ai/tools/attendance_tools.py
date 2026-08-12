@@ -1,9 +1,19 @@
-from typing import List, Dict, Any
-from .student_tools import get_students
-
-def get_low_attendance_students(threshold: int = 75) -> List[Dict[str, Any]]:
+def get_low_attendance_students():
     """
-    Returns a list of students with attendance below the given threshold.
+    Returns a list of students with attendance below 75%.
     """
-    all_students = get_students()
-    return [s for s in all_students if s.get("attendance", 100) < threshold]
+    # Mock data as requested for the prototype.
+    # In production, this will call the FastAPI/service layer connected to PostgreSQL.
+    mock_students = [
+        {
+            "roll_no": "CSE101",
+            "name": "Rahul",
+            "attendance": 68
+        },
+        {
+            "roll_no": "CSE102",
+            "name": "Aman",
+            "attendance": 72
+        }
+    ]
+    return mock_students
