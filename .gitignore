@@ -34,6 +34,17 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Archive files
+*.zip
+
+# IDE
+.vscode/
+.idea/
 
 # Archive files
 *.zip
@@ -41,10 +52,8 @@ yarn-error.log*
 # IDE & OS
 .DS_Store
 Thumbs.db
+
+
+# Certificates / keys
 *.pem
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea/
+

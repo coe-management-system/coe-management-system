@@ -1,6 +1,6 @@
 import unittest
 
-from backend.app.scheduling.what_if_simulator import simulate_event_change
+from app.scheduling.what_if_simulator import simulate_event_change
 
 
 class TestWhatIfSimulator(unittest.TestCase):

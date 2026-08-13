@@ -10,6 +10,8 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, UserX, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function StudentDetailPage() {
   const params = useParams();

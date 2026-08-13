@@ -41,12 +41,15 @@ export default function DashboardPage() {
   const fetchDashboard = async () => {
     setRefreshing(true);
     setError(null);
+
     try {
       const res = await dashboardApi.getDashboardData();
       setData(res);
     } catch (err) {
       console.error('Failed to load dashboard metrics', err);
-      setError('Unable to fetch live dashboard metrics. Displaying cached operational data.');
+      setError(
+        'Unable to fetch live dashboard metrics. Displaying cached operational data.'
+      );
     } finally {
       setRefreshing(false);
     }
@@ -70,11 +73,20 @@ export default function DashboardPage() {
               disabled={refreshing}
               className="inline-flex items-center space-x-1.5 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-slate-500 ${
+                  refreshing ? 'animate-spin' : ''
+                }`}
+              />
               <span>Refresh Metrics</span>
             </button>
+
             <button
-              onClick={() => alert('Operational Audit Report PDF export triggered (Mock).')}
+              onClick={() =>
+                alert(
+                  'Operational Audit Report PDF export triggered (Mock).'
+                )
+              }
               className="inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
             >
               <Download className="w-3.5 h-3.5" />

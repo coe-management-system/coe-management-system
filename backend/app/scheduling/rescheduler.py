@@ -5,8 +5,8 @@ This module identifies candidate time slots that are available for a
 faculty member, batch, and room.
 
 The current prototype does not automatically move timetable events or
-perform optimization. It only evaluates proposed candidate slots and
-returns those that do not conflict with existing events.
+perform optimization. It evaluates proposed candidate slots and reports
+whether they are feasible, including rejection reasons.
 """
 
 
@@ -48,6 +48,61 @@ def _slots_overlap(start1, end1, start2, end2):
     return start1 < end2 and start2 < end1
 
 
+def _get_slot_rejection_reasons(
+    events,
+    faculty_id,
+    batch_id,
+    room_id,
+    date,
+    start_time,
+    end_time,
+):
+    """
+    Determine why a proposed candidate slot is infeasible.
+
+    Returns:
+        List of human-readable rejection reasons.
+    """
+    reasons = []
+
+    if _time_to_minutes(start_time) >= _time_to_minutes(end_time):
+        reasons.append(
+            "Candidate slot has an invalid time range."
+        )
+
+    for event in events:
+        if event["date"] != date:
+            continue
+
+        if not _slots_overlap(
+            start_time,
+            end_time,
+            event["start_time"],
+            event["end_time"],
+        ):
+            continue
+
+        if event["faculty_id"] == faculty_id:
+            reasons.append(
+                f"Faculty {faculty_id} is unavailable due to "
+                f"event {event['id']}."
+            )
+
+        if event["batch_id"] == batch_id:
+            reasons.append(
+                f"Batch {batch_id} is unavailable due to "
+                f"event {event['id']}."
+            )
+
+        if event["room_id"] == room_id:
+            reasons.append(
+                f"Room {room_id} is unavailable due to "
+                f"event {event['id']}."
+            )
+
+    return reasons
+
+
 def _slot_is_available(
     events,
     faculty_id,
@@ -78,28 +133,15 @@ def _slot_is_available(
         True if the slot is available for all required resources,
         otherwise False.
     """
-    for event in events:
-        if event["date"] != date:
-            continue
-
-        if not _slots_overlap(
-            start_time,
-            end_time,
-            event["start_time"],
-            event["end_time"],
-        ):
-            continue
-
-        if event["faculty_id"] == faculty_id:
-            return False
-
-        if event["batch_id"] == batch_id:
-            return False
-
-        if event["room_id"] == room_id:
-            return False
-
-    return True
+    return not _get_slot_rejection_reasons(
+        events=events,
+        faculty_id=faculty_id,
+        batch_id=batch_id,
+        room_id=room_id,
+        date=date,
+        start_time=start_time,
+        end_time=end_time,
+    )
 
 
 def find_available_slots(
@@ -143,3 +185,51 @@ def find_available_slots(
             available_slots.append(slot)
 
     return available_slots
+
+
+def evaluate_candidate_slots(
+    events,
+    faculty_id,
+    batch_id,
+    room_id,
+    candidate_slots,
+):
+    """
+    Evaluate candidate slots and explain whether each is feasible.
+
+    Returns:
+        List of dictionaries containing:
+            - date
+            - start_time
+            - end_time
+            - status
+            - reasons
+
+        Status is either:
+            "feasible"
+            "rejected"
+    """
+    results = []
+
+    for slot in candidate_slots:
+        reasons = _get_slot_rejection_reasons(
+            events=events,
+            faculty_id=faculty_id,
+            batch_id=batch_id,
+            room_id=room_id,
+            date=slot["date"],
+            start_time=slot["start_time"],
+            end_time=slot["end_time"],
+        )
+
+        results.append(
+            {
+                "date": slot["date"],
+                "start_time": slot["start_time"],
+                "end_time": slot["end_time"],
+                "status": "feasible" if not reasons else "rejected",
+                "reasons": reasons,
+            }
+        )
+
+    return results

@@ -17,12 +17,18 @@ export default function BatchesPage() {
   const fetchBatches = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const data = await api.getBatches();
       setBatches(data);
     } catch (err) {
       console.error('Failed to load batches', err);
-      const msg = err instanceof Error ? err.message : 'Unable to load academic batches. Try again.';
+
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Unable to load academic batches. Try again.';
+
       setError(msg);
     } finally {
       setLoading(false);
@@ -38,7 +44,10 @@ export default function BatchesPage() {
       <PageHeader
         title="Academic Batches"
         subtitle="Institutional Cohorts, Graduation Years & Associated Departments"
-        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Batches' }]}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Batches' },
+        ]}
         action={
           <div className="flex items-center space-x-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 text-xs text-indigo-700 font-semibold">
             <Layers className="w-4 h-4 text-indigo-600" />
@@ -47,9 +56,16 @@ export default function BatchesPage() {
         }
       />
 
-      {loading && <LoadingState message="Loading academic batches..." />}
+      {loading && (
+        <LoadingState message="Loading academic batches..." />
+      )}
 
-      {!loading && error && <ErrorState message={error} onRetry={fetchBatches} />}
+      {!loading && error && (
+        <ErrorState
+          message={error}
+          onRetry={fetchBatches}
+        />
+      )}
 
       {!loading && !error && batches.length === 0 && (
         <EmptyState
@@ -67,23 +83,32 @@ export default function BatchesPage() {
                   <th className="py-3 px-4">Batch Name</th>
                   <th className="py-3 px-4">Academic Year</th>
                   <th className="py-3 px-4">Department</th>
-                  <th className="py-3 px-4 text-center">Enrolled Students</th>
+                  <th className="py-3 px-4 text-center">
+                    Enrolled Students
+                  </th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-100 text-xs">
                 {batches.map((batch) => (
-                  <tr key={batch.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr
+                    key={batch.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       {batch.name}
                     </td>
+
                     <td className="py-3.5 px-4 font-mono font-semibold text-indigo-600">
                       {batch.year}
                     </td>
+
                     <td className="py-3.5 px-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-800">
                         {batch.department}
                       </span>
                     </td>
+
                     <td className="py-3.5 px-4 text-center font-semibold text-slate-700">
                       <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
                         <Users className="w-3 h-3 text-indigo-600" />
@@ -97,7 +122,9 @@ export default function BatchesPage() {
           </div>
 
           <div className="px-4 py-3 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
-            <span>Showing {batches.length} active batch cohorts</span>
+            <span>
+              Showing {batches.length} active batch cohorts
+            </span>
             <span>Institutional Batch Directory</span>
           </div>
         </div>
