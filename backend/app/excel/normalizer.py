@@ -12,7 +12,7 @@ def normalize_value(field: str, value: str) -> str:
 
     if field == "email":
         value = value.lower()
-    if field == "student_id":
+    if field == "roll_no":
         value = value.upper()
 
     return value

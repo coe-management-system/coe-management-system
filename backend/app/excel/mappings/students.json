@@ -1,8 +1,8 @@
 {
-  "student_id": [
-    "student_id", "roll_no", "roll no", "roll number", "roll_number",
+  "roll_no": [
+    "roll_no", "roll no", "roll number", "roll_number",
     "reg_no", "registration no", "registration number",
-    "admission id", "admission_id", "student id"
+    "admission id", "admission_id", "student id", "student_id"
   ],
   "name": [
     "name", "student name", "student_name", "full name", "full_name"
