@@ -65,6 +65,7 @@ export interface Batch {
   id: number | string;
   name: string;
   year: number | string;
+  department_id?: number | string;
   department: string;
   studentCount?: number;
 }
@@ -72,6 +73,7 @@ export interface Batch {
 export interface Group {
   id: number | string;
   name: string;
+  batch_id?: number | string;
   batch: string;
   department: string;
   studentCount?: number;
@@ -79,10 +81,12 @@ export interface Group {
 
 export interface Faculty {
   id: number | string;
+  employee_code?: string;
   name: string;
   email: string;
+  department_id?: number | string;
   department: string;
-  role: string;
+  role?: string;
 }
 
 export type DepartmentType =

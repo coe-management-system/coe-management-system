@@ -1,5 +1,5 @@
 // Unified API Layer for Center of Excellence Management System
-// Architected for seamless FastAPI backend REST integration
+// Architected for seamless FastAPI backend REST integration & Centralized Error Handling
 // Standardized endpoints: GET /api/v1/students, GET /api/v1/departments, GET /api/v1/batches, GET /api/v1/groups, GET /api/v1/faculty
 
 import { Student, Department, Batch, Group, Faculty, StudentFilterParams } from '@/types';
@@ -9,6 +9,44 @@ import { MOCK_ALERTS } from './mock-data/alerts';
 import { DashboardData } from '@/types/dashboard';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+// Centralized Frontend API Error Representation
+export class ApiError extends Error {
+  statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+  }
+}
+
+// Centralized HTTP Status Error Mapping
+export function getErrorMessageForStatus(status: number): string {
+  switch (status) {
+    case 401:
+      return 'Authentication required. Please log in with valid credentials.';
+    case 403:
+      return 'Access denied. You do not have permission to view or modify this resource.';
+    case 404:
+      return 'The requested resource was not found on the institutional server.';
+    case 422:
+      return 'Invalid request payload or data validation error.';
+    case 500:
+      return 'Internal server error occurred on the institutional backend.';
+    default:
+      return `Institutional server returned error status (${status}). Please try again.`;
+  }
+}
+
+// Centralized Response Validator & Parser
+async function handleApiResponse<T>(response: Response): Promise<T> {
+  if (response.ok) {
+    return (await response.json()) as T;
+  }
+  const message = getErrorMessageForStatus(response.status);
+  throw new ApiError(response.status, message);
+}
 
 // Default mock datasets for backend fallback
 export const MOCK_DEPARTMENTS: Department[] = [
@@ -40,14 +78,47 @@ export const MOCK_FACULTY: Faculty[] = [
   { id: 3, name: 'Prof. Alok Gupta', email: 'alok.gupta@institution.edu', department: 'IT', role: 'Assistant Professor' },
 ];
 
+const DEPT_MAP: Record<number, string> = {
+  1: 'CSE',
+  2: 'ECE',
+  3: 'IT',
+  4: 'ME',
+  5: 'CE',
+};
+
+const BATCH_MAP: Record<number, string> = {
+  1: '2026',
+  2: '2025',
+  3: '2024-2028',
+  4: '2023-2027',
+  5: '2022-2026',
+};
+
+const GROUP_MAP: Record<number, string> = {
+  1: 'CSE-4A',
+  2: 'CSE-4B',
+  3: 'ECE-3A',
+  4: 'IT-2B',
+};
+
 // Helper to ensure backend-compatible fields exist on student objects
 function normalizeStudent(s: Record<string, unknown>): Student {
   const roll = String(s.roll_no || s.rollNumber || s.rollNo || '');
   const name = String(s.name || '');
   const email = String(s.email || '');
-  const department = String(s.department || s.department_name || 'CSE');
-  const batch = String(s.batch || s.batch_name || '2026');
-  const group = String(s.group || s.group_name || 'CSE-4A');
+  const deptId = Number(s.department_id);
+  const batchId = Number(s.batch_id);
+  const groupId = Number(s.group_id);
+
+  const department = String(
+    s.department || s.department_name || DEPT_MAP[deptId] || (deptId ? `Dept #${deptId}` : 'CSE')
+  );
+  const batch = String(
+    s.batch || s.batch_name || BATCH_MAP[batchId] || (batchId ? `Batch #${batchId}` : '2026')
+  );
+  const group = String(
+    s.group || s.group_name || GROUP_MAP[groupId] || (groupId ? `Group #${groupId}` : 'CSE-4A')
+  );
   const id = (s.id as string | number) || roll || 'STU-0';
 
   return {
@@ -57,9 +128,96 @@ function normalizeStudent(s: Record<string, unknown>): Student {
     email,
     roll_no: roll,
     rollNumber: roll,
+    department_id: s.department_id as number | undefined,
+    batch_id: s.batch_id as number | undefined,
+    group_id: s.group_id as number | undefined,
     department,
     batch,
     group,
+  };
+}
+
+function normalizeDepartment(item: Record<string, unknown>): Department {
+  const id = (item.id as number | string) || 1;
+  const name = String(item.name || 'Department');
+  const code = String(item.code || name.substring(0, 3).toUpperCase());
+  const description = String(item.description || `${name} Department`);
+  const head = String(item.head || 'To be appointed');
+  const studentCount = Number(item.studentCount || item.student_count || 120);
+  const facultyCount = Number(item.facultyCount || item.faculty_count || 15);
+
+  return {
+    id,
+    name,
+    code,
+    description,
+    head,
+    studentCount,
+    facultyCount,
+  };
+}
+
+function normalizeBatch(item: Record<string, unknown>): Batch {
+  const id = (item.id as number | string) || 1;
+  const name = String(item.name || '2026');
+  const year = (item.year as number | string) || '2026';
+  const deptId = Number(item.department_id);
+  const department = String(
+    item.department || item.department_name || DEPT_MAP[deptId] || (deptId ? `Dept #${deptId}` : 'CSE')
+  );
+  const studentCount = Number(item.studentCount || item.student_count || 100);
+
+  return {
+    id,
+    name,
+    year,
+    department_id: item.department_id as number | undefined,
+    department,
+    studentCount,
+  };
+}
+
+function normalizeGroup(item: Record<string, unknown>): Group {
+  const id = (item.id as number | string) || 1;
+  const name = String(item.name || 'CSE-4A');
+  const batchId = Number(item.batch_id);
+  const batch = String(
+    item.batch || item.batch_name || BATCH_MAP[batchId] || (batchId ? `Batch #${batchId}` : '2026')
+  );
+  const department = String(
+    item.department || DEPT_MAP[batchId] || 'CSE'
+  );
+  const studentCount = Number(item.studentCount || item.student_count || 50);
+
+  return {
+    id,
+    name,
+    batch_id: item.batch_id as number | undefined,
+    batch,
+    department,
+    studentCount,
+  };
+}
+
+function normalizeFaculty(item: Record<string, unknown>): Faculty {
+  const id = (item.id as number | string) || 1;
+  const employeeCode = String(item.employee_code || item.employeeCode || `FAC-${id}`);
+  const name = String(item.name || 'Faculty Member');
+  const email = String(item.email || '');
+  const deptId = Number(item.department_id);
+  const department = String(
+    item.department || item.department_name || DEPT_MAP[deptId] || (deptId ? `Dept #${deptId}` : 'CSE')
+  );
+  const role = String(item.role || item.designation || 'Faculty');
+
+  return {
+    id,
+    employee_code: employeeCode,
+    name,
+    email,
+    department_id: item.department_id as number | undefined,
+    department,
+    role,
   };
 }
 
@@ -71,19 +229,18 @@ export const api = {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (response.ok) {
-        const data = await response.json();
-        const normalized = Array.isArray(data) ? data.map(normalizeStudent) : [];
-        return filterStudents(normalized, params);
+      const data = await handleApiResponse<Record<string, unknown>[]>(response);
+      const normalized = Array.isArray(data) ? data.map(normalizeStudent) : [];
+      return filterStudents(normalized, params);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
       }
-    } catch {
-      // Backend unreachable: Fallback to mock dataset
+      // Connection Refused / Network Error Fallback
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const normalizedMock = MOCK_STUDENTS.map((item) => normalizeStudent(item as unknown as Record<string, unknown>));
+      return filterStudents(normalizedMock, params);
     }
-
-    // Mock API simulation with slight delay
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    const normalizedMock = MOCK_STUDENTS.map((item) => normalizeStudent(item as unknown as Record<string, unknown>));
-    return filterStudents(normalizedMock, params);
   },
 
   // GET /api/v1/students/:id
@@ -93,12 +250,13 @@ export const api = {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
-      if (response.ok) {
-        const data = await response.json();
-        return normalizeStudent(data);
+      const data = await handleApiResponse<Record<string, unknown>>(response);
+      return normalizeStudent(data);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.statusCode === 404) return null;
+        throw err;
       }
-    } catch {
-      // Fallback
     }
 
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -112,11 +270,12 @@ export const api = {
   async getDepartments(): Promise<Department[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/departments`);
-      if (response.ok) {
-        return await response.json();
+      const data = await handleApiResponse<Record<string, unknown>[]>(response);
+      return Array.isArray(data) ? data.map(normalizeDepartment) : [];
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
       }
-    } catch {
-      // Fallback
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_DEPARTMENTS;
@@ -126,11 +285,12 @@ export const api = {
   async getBatches(): Promise<Batch[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/batches`);
-      if (response.ok) {
-        return await response.json();
+      const data = await handleApiResponse<Record<string, unknown>[]>(response);
+      return Array.isArray(data) ? data.map(normalizeBatch) : [];
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
       }
-    } catch {
-      // Fallback
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_BATCHES;
@@ -140,11 +300,12 @@ export const api = {
   async getGroups(): Promise<Group[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/groups`);
-      if (response.ok) {
-        return await response.json();
+      const data = await handleApiResponse<Record<string, unknown>[]>(response);
+      return Array.isArray(data) ? data.map(normalizeGroup) : [];
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
       }
-    } catch {
-      // Fallback
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_GROUPS;
@@ -154,14 +315,15 @@ export const api = {
   async getFaculty(): Promise<Faculty[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/faculty`);
-      if (response.ok) {
-        return await response.json();
+      const data = await handleApiResponse<Record<string, unknown>[]>(response);
+      return Array.isArray(data) ? data.map(normalizeFaculty) : [];
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err;
       }
-    } catch {
-      // Fallback
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
-    return MOCK_FACULTY;
+    return MOCK_FACULTY.map((item) => normalizeFaculty(item as unknown as Record<string, unknown>));
   },
 
   // GET Dashboard Data

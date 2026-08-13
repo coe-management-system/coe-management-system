@@ -1,29 +1,37 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Batch } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Layers, Users, Loader2 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Layers, Users } from 'lucide-react';
 
 export default function BatchesPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBatches = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getBatches();
+      setBatches(data);
+    } catch (err) {
+      console.error('Failed to load batches', err);
+      const msg = err instanceof Error ? err.message : 'Unable to load academic batches. Try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const data = await api.getBatches();
-        setBatches(data);
-      } catch (err) {
-        console.error('Failed to load batches', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+    fetchBatches();
+  }, [fetchBatches]);
 
   return (
     <div className="space-y-6">
@@ -39,12 +47,18 @@ export default function BatchesPage() {
         }
       />
 
-      {loading ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-700">Loading academic batches...</p>
-        </div>
-      ) : (
+      {loading && <LoadingState message="Loading academic batches..." />}
+
+      {!loading && error && <ErrorState message={error} onRetry={fetchBatches} />}
+
+      {!loading && !error && batches.length === 0 && (
+        <EmptyState
+          title="No academic batches found."
+          message="No active academic cohort batches are registered in the database."
+        />
+      )}
+
+      {!loading && !error && batches.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
