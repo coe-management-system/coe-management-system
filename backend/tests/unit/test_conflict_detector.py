@@ -1,6 +1,6 @@
 import unittest
 
-from backend.app.scheduling.conflict_detector import detect_conflicts
+from app.scheduling.conflict_detector import detect_conflicts
 
 
 class TestConflictDetector(unittest.TestCase):

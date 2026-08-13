@@ -1,6 +1,6 @@
 import unittest
 
-from backend.app.scheduling.priorities import get_priority_value
+from app.scheduling.priorities import get_priority_value
 
 
 class TestPriorities(unittest.TestCase):
