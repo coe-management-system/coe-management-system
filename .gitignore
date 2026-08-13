@@ -1,3 +1,13 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js build outputs
+.next/
+out/
+build/
+dist/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -18,17 +28,11 @@ env/
 .pytest_cache/
 .coverage
 
-# Node / Dependencies
-node_modules/
-.pnpm-store/
-
-# Next.js build outputs
-.next/
-out/
-dist/
-build/
-
 # Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -42,9 +46,14 @@ yarn-error.log*
 .vscode/
 .idea/
 
-# OS
+# Archive files
+*.zip
+
+# IDE & OS
 .DS_Store
 Thumbs.db
 
+
 # Certificates / keys
 *.pem
+

@@ -6,7 +6,9 @@ import { Student } from '@/types/student';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StudentFilters } from '@/components/students/StudentFilters';
 import { StudentTable } from '@/components/students/StudentTable';
-import { Users, GraduationCap, Building2, UserCheck, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Users, GraduationCap, Building2, UserCheck } from 'lucide-react';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -32,7 +34,8 @@ export default function StudentsPage() {
       setStudents(data);
     } catch (err) {
       console.error('Failed to fetch students', err);
-      setError('Unable to load students. Try again.');
+      const msg = err instanceof Error ? err.message : 'Unable to load students. Try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -110,27 +113,10 @@ export default function StudentsPage() {
       />
 
       {/* Loading State */}
-      {loading && (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-700">Loading students...</p>
-        </div>
-      )}
+      {loading && <LoadingState message="Loading students..." />}
 
       {/* Error State */}
-      {!loading && error && (
-        <div className="p-8 text-center bg-rose-50/50 rounded-2xl border border-rose-200 shadow-2xs">
-          <AlertCircle className="w-8 h-8 text-rose-600 mx-auto mb-2" />
-          <h3 className="text-sm font-bold text-rose-900">{error}</h3>
-          <button
-            onClick={fetchStudents}
-            className="mt-4 inline-flex items-center space-x-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Try again</span>
-          </button>
-        </div>
-      )}
+      {!loading && error && <ErrorState message={error} onRetry={fetchStudents} />}
 
       {/* Table & Empty State */}
       {!loading && !error && (

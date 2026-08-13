@@ -8,6 +8,9 @@ import {
   Briefcase,
   FileText,
   AlertTriangle,
+  Building2,
+  Layers,
+  FolderTree,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -25,6 +28,9 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Briefcase,
   FileText,
   AlertTriangle,
+  Building2,
+  Layers,
+  FolderTree,
 };
 
 export const KpiCard: React.FC<KpiCardProps> = ({ metric }) => {
