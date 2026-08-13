@@ -1,0 +1,203 @@
+// Unified API Layer for Center of Excellence Management System
+// Architected for seamless FastAPI backend REST integration
+// Standardized endpoints: GET /api/v1/students, GET /api/v1/departments, GET /api/v1/batches, GET /api/v1/groups, GET /api/v1/faculty
+
+import { Student, Department, Batch, Group, Faculty, StudentFilterParams } from '@/types';
+import { MOCK_STUDENTS } from './mock-data/students';
+import { MOCK_KPIS, MOCK_COE_SUMMARIES, MOCK_ATTENDANCE_COMPARISON, MOCK_MONTHLY_TREND, MOCK_TRAINING_CERT_DATA, MOCK_WORKLOAD_DATA } from './mock-data/dashboard';
+import { MOCK_ALERTS } from './mock-data/alerts';
+import { DashboardData } from '@/types/dashboard';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+// Default mock datasets for backend fallback
+export const MOCK_DEPARTMENTS: Department[] = [
+  { id: 1, name: 'Computer Science & Engineering', code: 'CSE', description: 'Computer Science and Engineering Department', head: 'Dr. Ramesh Kumar', studentCount: 450, facultyCount: 28 },
+  { id: 2, name: 'Electronics & Communication', code: 'ECE', description: 'Electronics and Communication Engineering Department', head: 'Dr. Sunita Sharma', studentCount: 320, facultyCount: 22 },
+  { id: 3, name: 'Information Technology', code: 'IT', description: 'Information Technology & Software Systems', head: 'Dr. Amit Patel', studentCount: 280, facultyCount: 18 },
+  { id: 4, name: 'Mechanical Engineering', code: 'ME', description: 'Mechanical & Automation Engineering Department', head: 'Dr. Rajesh Verma', studentCount: 220, facultyCount: 15 },
+  { id: 5, name: 'Civil Engineering', code: 'CE', description: 'Civil Infrastructure & Structural Engineering', head: 'Dr. Priya Kulkarni', studentCount: 150, facultyCount: 12 },
+];
+
+export const MOCK_BATCHES: Batch[] = [
+  { id: 1, name: '2026', year: 2026, department: 'CSE', studentCount: 120 },
+  { id: 2, name: '2025', year: 2025, department: 'CSE', studentCount: 110 },
+  { id: 3, name: '2024-2028', year: '2024-2028', department: 'CSE', studentCount: 115 },
+  { id: 4, name: '2023-2027', year: '2023-2027', department: 'ECE', studentCount: 95 },
+  { id: 5, name: '2022-2026', year: '2022-2026', department: 'IT', studentCount: 88 },
+];
+
+export const MOCK_GROUPS: Group[] = [
+  { id: 1, name: 'CSE-4A', batch: '2026', department: 'CSE', studentCount: 60 },
+  { id: 2, name: 'CSE-4B', batch: '2026', department: 'CSE', studentCount: 60 },
+  { id: 3, name: 'ECE-3A', batch: '2025', department: 'ECE', studentCount: 50 },
+  { id: 4, name: 'IT-2B', batch: '2024-2028', department: 'IT', studentCount: 45 },
+];
+
+export const MOCK_FACULTY: Faculty[] = [
+  { id: 1, name: 'Dr. Ramesh Kumar', email: 'ramesh.kumar@institution.edu', department: 'CSE', role: 'Professor & HOD' },
+  { id: 2, name: 'Dr. Sunita Sharma', email: 'sunita.sharma@institution.edu', department: 'ECE', role: 'Associate Professor' },
+  { id: 3, name: 'Prof. Alok Gupta', email: 'alok.gupta@institution.edu', department: 'IT', role: 'Assistant Professor' },
+];
+
+// Helper to ensure backend-compatible fields exist on student objects
+function normalizeStudent(s: Record<string, unknown>): Student {
+  const roll = String(s.roll_no || s.rollNumber || s.rollNo || '');
+  const name = String(s.name || '');
+  const email = String(s.email || '');
+  const department = String(s.department || s.department_name || 'CSE');
+  const batch = String(s.batch || s.batch_name || '2026');
+  const group = String(s.group || s.group_name || 'CSE-4A');
+  const id = (s.id as string | number) || roll || 'STU-0';
+
+  return {
+    ...(s as unknown as Student),
+    id,
+    name,
+    email,
+    roll_no: roll,
+    rollNumber: roll,
+    department,
+    batch,
+    group,
+  };
+}
+
+export const api = {
+  // GET /api/v1/students
+  async getStudents(params?: StudentFilterParams): Promise<Student[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/students`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const normalized = Array.isArray(data) ? data.map(normalizeStudent) : [];
+        return filterStudents(normalized, params);
+      }
+    } catch {
+      // Backend unreachable: Fallback to mock dataset
+    }
+
+    // Mock API simulation with slight delay
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const normalizedMock = MOCK_STUDENTS.map((item) => normalizeStudent(item as unknown as Record<string, unknown>));
+    return filterStudents(normalizedMock, params);
+  },
+
+  // GET /api/v1/students/:id
+  async getStudentById(id: string): Promise<Student | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/students/${id}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return normalizeStudent(data);
+      }
+    } catch {
+      // Fallback
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const found = MOCK_STUDENTS.find(
+      (s) => s.id === id || s.rollNumber === id || s.roll_no === id
+    );
+    return found ? normalizeStudent(found as unknown as Record<string, unknown>) : null;
+  },
+
+  // GET /api/v1/departments
+  async getDepartments(): Promise<Department[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/departments`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Fallback
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return MOCK_DEPARTMENTS;
+  },
+
+  // GET /api/v1/batches
+  async getBatches(): Promise<Batch[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/batches`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Fallback
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return MOCK_BATCHES;
+  },
+
+  // GET /api/v1/groups
+  async getGroups(): Promise<Group[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/groups`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Fallback
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return MOCK_GROUPS;
+  },
+
+  // GET /api/v1/faculty
+  async getFaculty(): Promise<Faculty[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/faculty`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Fallback
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return MOCK_FACULTY;
+  },
+
+  // GET Dashboard Data
+  async getDashboardData(): Promise<DashboardData> {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return {
+      kpis: MOCK_KPIS,
+      alerts: MOCK_ALERTS,
+      coeSummaries: MOCK_COE_SUMMARIES,
+      attendanceComparison: MOCK_ATTENDANCE_COMPARISON,
+      monthlyTrend: MOCK_MONTHLY_TREND,
+      trainingCertData: MOCK_TRAINING_CERT_DATA,
+      workloadData: MOCK_WORKLOAD_DATA,
+    };
+  },
+};
+
+function filterStudents(list: Student[], params?: StudentFilterParams): Student[] {
+  if (!params) return list;
+  return list.filter((student) => {
+    if (params.searchQuery) {
+      const q = params.searchQuery.toLowerCase();
+      const nameMatch = student.name.toLowerCase().includes(q);
+      const rollMatch = (student.roll_no || student.rollNumber || '').toLowerCase().includes(q);
+      const emailMatch = student.email.toLowerCase().includes(q);
+      if (!nameMatch && !rollMatch && !emailMatch) return false;
+    }
+    if (params.department && params.department !== 'All') {
+      if (!student.department.toLowerCase().includes(params.department.toLowerCase())) return false;
+    }
+    if (params.batch && params.batch !== 'All') {
+      if (!student.batch.toString().includes(params.batch.toString())) return false;
+    }
+    if (params.group && params.group !== 'All') {
+      if (!student.group.toString().toLowerCase().includes(params.group.toString().toLowerCase())) return false;
+    }
+    return true;
+  });
+}

@@ -13,6 +13,12 @@ whether they are feasible, including rejection reasons.
 def _time_to_minutes(time_string):
     """
     Convert a HH:MM time string into minutes since midnight.
+
+    Args:
+        time_string: Time value in HH:MM format.
+
+    Returns:
+        Integer number of minutes since midnight.
     """
     hours, minutes = map(int, time_string.split(":"))
     return hours * 60 + minutes
@@ -24,6 +30,15 @@ def _slots_overlap(start1, end1, start2, end2):
 
     Time ranges that touch at their boundary are considered
     non-overlapping.
+
+    Args:
+        start1: Start time of the first slot.
+        end1: End time of the first slot.
+        start2: Start time of the second slot.
+        end2: End time of the second slot.
+
+    Returns:
+        True if the time ranges overlap, otherwise False.
     """
     start1 = _time_to_minutes(start1)
     end1 = _time_to_minutes(end1)
@@ -104,6 +119,19 @@ def _slot_is_available(
     - Faculty
     - Batch
     - Room
+
+    Args:
+        events: Existing timetable events.
+        faculty_id: Faculty assigned to the proposed slot.
+        batch_id: Batch assigned to the proposed slot.
+        room_id: Room assigned to the proposed slot.
+        date: Proposed slot date.
+        start_time: Proposed slot start time.
+        end_time: Proposed slot end time.
+
+    Returns:
+        True if the slot is available for all required resources,
+        otherwise False.
     """
     return not _get_slot_rejection_reasons(
         events=events,
@@ -126,8 +154,21 @@ def find_available_slots(
     """
     Find candidate slots where all required resources are available.
 
-    This preserves the Day 1 return contract and returns only feasible
-    candidate slots.
+    Args:
+        events: Existing timetable events.
+        faculty_id: Faculty assigned to the class.
+        batch_id: Batch assigned to the class.
+        room_id: Room assigned to the class.
+        candidate_slots: List of proposed time slots. Each slot should
+            contain date, start_time, and end_time.
+
+    Returns:
+        List containing only the candidate slots that do not conflict
+        with the existing timetable.
+
+    Notes:
+        This function does not modify existing events. It only evaluates
+        candidate slots.
     """
     available_slots = []
 
