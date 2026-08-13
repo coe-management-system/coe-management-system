@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { MOCK_USER } from '@/lib/mock-data/auth';
+import { useAuth } from '@/context/AuthContext';
 import {
   Menu,
   Search,
@@ -20,14 +19,19 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar }) => {
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleLogout = () => {
     setDropdownOpen(false);
-    router.push('/login');
+    logout();
   };
+
+  const displayName = user?.username || 'Institutional User';
+  const displayEmail = user?.email || 'user@institution.edu';
+  const displayRole = user?.role || 'Administrator';
+  const initials = displayName.substring(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between shadow-xs">
@@ -121,11 +125,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar }) => {
             className="flex items-center space-x-2.5 p-1.5 pl-2.5 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
           >
             <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs">
-              SJ
+              {initials}
             </div>
             <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-slate-800 leading-tight">{MOCK_USER.name}</div>
-              <div className="text-[10px] text-slate-500 font-medium">Center of Excellence Administrator</div>
+              <div className="text-xs font-bold text-slate-800 leading-tight">{displayName}</div>
+              <div className="text-[10px] text-slate-500 font-medium">{displayRole}</div>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-400" />
           </button>
@@ -133,8 +137,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar }) => {
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50">
               <div className="px-4 py-2.5 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-900">{MOCK_USER.name}</p>
-                <p className="text-[11px] text-slate-500 truncate">{MOCK_USER.email}</p>
+                <p className="text-xs font-bold text-slate-900">{displayName}</p>
+                <p className="text-[11px] text-slate-500 truncate">{displayEmail}</p>
               </div>
               <Link
                 href="/settings"
@@ -146,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar }) => {
               </Link>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-2 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 border-t border-slate-100 text-left font-medium"
+                className="w-full flex items-center space-x-2 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 border-t border-slate-100 text-left font-medium cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Log Out</span>
