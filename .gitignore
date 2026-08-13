@@ -9,24 +9,42 @@ env/
 
 # Environment
 .env
-
-# IDE
-.vscode/
-.idea/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Testing
 .pytest_cache/
 .coverage
 
-# Node
+# Node / Dependencies
 node_modules/
+.pnpm-store/
+
+# Next.js build outputs
 .next/
+out/
 dist/
 build/
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Archive files
+*.zip
+
+# IDE
+.vscode/
+.idea/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Certificates / keys
+*.pem
