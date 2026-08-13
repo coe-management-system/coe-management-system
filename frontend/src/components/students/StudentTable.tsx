@@ -1,7 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Student } from '@/types/student';
-import { Eye, Award, AlertTriangle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Eye, Award } from 'lucide-react';
 
 interface StudentTableProps {
   students: Student[];
@@ -10,15 +11,10 @@ interface StudentTableProps {
 export const StudentTable: React.FC<StudentTableProps> = ({ students }) => {
   if (students.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
-        <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
-          <AlertTriangle className="w-6 h-6 text-slate-400" />
-        </div>
-        <h3 className="text-sm font-bold text-slate-800">No students found.</h3>
-        <p className="text-xs text-slate-500 mt-1">
-          Try adjusting your search criteria or resetting filters.
-        </p>
-      </div>
+      <EmptyState
+        title="No students found."
+        message="Try adjusting your search criteria or resetting filters."
+      />
     );
   }
 
