@@ -1,6 +1,6 @@
 import re
 
-REQUIRED_FIELDS = ["roll_no", "name", "email", "department", "batch", "group"]
+REQUIRED_FIELDS = ["student_id", "name", "email", "department", "batch", "group"]
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def validate_record(record: dict, row_number: int) -> list:

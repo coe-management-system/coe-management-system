@@ -3,15 +3,15 @@ def detect_duplicates(records: list) -> list:
     duplicates = []
 
     for record in records:
-        roll_no = record.get("roll_no", "")
-        if not roll_no:
+        student_id = record.get("student_id", "")
+        if not student_id:
             continue
-        if roll_no in seen:
+        if student_id in seen:
             duplicates.append({
-                "roll_no": roll_no,
-                "rows": [seen[roll_no], record["_row"]]
+                "student_id": student_id,
+                "rows": [seen[student_id], record["_row"]]
             })
         else:
-            seen[roll_no] = record["_row"]
+            seen[student_id] = record["_row"]
 
     return duplicates
