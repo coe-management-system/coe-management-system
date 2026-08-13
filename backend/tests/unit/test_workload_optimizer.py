@@ -1,6 +1,6 @@
 import unittest
 
-from backend.app.scheduling.workload_optimizer import (
+from app.scheduling.workload_optimizer import (
     calculate_event_duration,
     calculate_faculty_workload,
 )
