@@ -1,11 +1,22 @@
-from typing import Dict, Optional
+from app.ai.tools.registry import registry, Tool, ToolResult
 
-def get_certification_status(student_id: str) -> Optional[Dict]:
+def execute_get_certification_status(student_id: str, **kwargs) -> ToolResult:
     """
-    Returns the certification status for a specific student.
+    Status: Interface Available
+    Implementation: Pending Backend Service
     """
-    return {
-        "student_id": student_id,
-        "certification_name": "AWS Cloud Practitioner",
-        "status": "Not Started"
-    }
+    return ToolResult(
+        success=False,
+        error="Certification service is currently unavailable or pending implementation.",
+        data=None,
+        metadata={"service": "certification_service_pending"}
+    )
+
+registry.register_tool(Tool(
+    name="get_certification_status",
+    description="Retrieve the certification progress and earned certificates for a specific student.",
+    parameters={"student_id": "The roll number of the student (e.g., CSE101)"},
+    required_parameters=["student_id"],
+    permission="READ",
+    executor=execute_get_certification_status
+))
