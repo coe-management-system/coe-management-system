@@ -26,6 +26,35 @@ class ImportJob(Base):
         default=ImportStatus.CREATED,
     )
 
+    total_rows: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    valid_rows: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    invalid_rows: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    duplicate_rows: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
