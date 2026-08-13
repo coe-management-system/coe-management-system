@@ -1,12 +1,22 @@
-def get_training_status(student_id: str):
+from app.ai.tools.registry import registry, Tool, ToolResult
+
+def execute_get_training_status(student_id: str, **kwargs) -> ToolResult:
     """
-    Returns the training status for a specific student.
+    Status: Interface Available
+    Implementation: Pending Backend Service
     """
-    # Mock data for prototype.
-    # In production, this will call the FastAPI/service layer connected to PostgreSQL.
-    return {
-        "student_id": student_id,
-        "completed_trainings": ["Python Basics", "Web Development"],
-        "ongoing_trainings": ["Machine Learning"],
-        "pending_trainings": ["Cloud Computing"]
-    }
+    return ToolResult(
+        success=False,
+        error="Training service is currently unavailable or pending implementation.",
+        data=None,
+        metadata={"service": "training_service_pending"}
+    )
+
+registry.register_tool(Tool(
+    name="get_training_status",
+    description="Retrieve the training and internship status of a specific student.",
+    parameters={"student_id": "The roll number of the student (e.g., CSE101)"},
+    required_parameters=["student_id"],
+    permission="READ",
+    executor=execute_get_training_status
+))
