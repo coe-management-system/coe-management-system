@@ -1,3 +1,4 @@
+from app.models.import_status import ImportStatus
 from datetime import datetime
 
 from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, func
@@ -22,7 +23,7 @@ class ImportJob(Base):
     status: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        default="CREATED",
+        default=ImportStatus.CREATED,
     )
 
     created_by: Mapped[int | None] = mapped_column(

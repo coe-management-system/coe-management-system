@@ -12,3 +12,4 @@ from app.models.certification import Certification, CertificationAttempt
 from app.models.timetable import TimetableEvent
 from app.models.workload import WorkloadAllocation
 from app.models.import_job import ImportJob, ImportError
+from app.models.import_status import ImportStatus
