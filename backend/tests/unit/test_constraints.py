@@ -1,6 +1,6 @@
 import unittest
 
-from backend.app.scheduling.constraints import (
+from app.scheduling.constraints import (
     validate_event,
     is_slot_valid,
 )
