@@ -11,7 +11,8 @@ from app.api.routes.imports import router as imports_router
 from app.api.routes.timetable import router as timetable_router
 from app.api.routes.workload import router as workload_router
 from app.api.routes.scheduling import router as scheduling_router
-
+from app.api.routes.attendance import router as attendance_router
+from app.api.routes.syllabus import router as syllabus_router
 
 app = FastAPI(
     title="COE Management System",
@@ -71,5 +72,15 @@ app.include_router(
 
 app.include_router(
     scheduling_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    attendance_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    syllabus_router,
     prefix="/api/v1",
 )

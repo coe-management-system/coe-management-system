@@ -1,17 +1,20 @@
-from pathlib import Path
+import json
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
-from fastapi import HTTPException
 
-from app.services.import_service import ImportService
+from app.services.import_service import ImportService, ImportStatus
+
+
+def make_df(rows, columns):
+    return pd.DataFrame(rows, columns=columns)
 
 
 def create_db():
     db = MagicMock()
 
     def add_side_effect(obj):
-        # Simulate SQLAlchemy assigning an ID after flush.
         if obj.__class__.__name__ == "ImportJob":
             obj.id = 1
 
@@ -19,430 +22,241 @@ def create_db():
     return db
 
 
-def create_department():
-    department = MagicMock()
-    department.id = 1
-    department.code = "CSE"
-    return department
+def make_import_job(status=ImportStatus.CREATED, file_path="dummy.xlsx", validation_result=None):
+    job = MagicMock()
+    job.id = 1
+    job.status = status
+    job.file_path = file_path
+    job.validation_result = validation_result
+    job.file_hash = "abc123"
+    job.filename = "students.xlsx"
+    return job
 
 
-def create_batch():
-    batch = MagicMock()
-    batch.id = 1
-    batch.year = 2026
-    batch.department_id = 1
-    return batch
+def create_department(dept_id=1, code="CSE"):
+    d = MagicMock()
+    d.id = dept_id
+    d.code = code
+    return d
 
 
-def create_group():
-    group = MagicMock()
-    group.id = 1
-    group.name = "4A"
-    group.batch_id = 1
-    return group
+def create_batch(batch_id=1, year=2026, department_id=1):
+    b = MagicMock()
+    b.id = batch_id
+    b.year = year
+    b.department_id = department_id
+    return b
 
 
-@patch("app.services.import_service.run_import")
-def test_successful_student_import(mock_run_import, tmp_path):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE999",
-                "name": "New Student",
-                "email": "new@example.com",
-                "department": "CSE",
-                "batch": "2026",
-                "group": "4A",
-            }
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [],
-    }
+def create_group(group_id=1, name="4A", batch_id=1):
+    g = MagicMock()
+    g.id = group_id
+    g.name = name
+    g.batch_id = batch_id
+    return g
 
+
+# ---------- create_import ----------
+
+@patch("app.services.import_service.ImportService.compute_file_hash", return_value="hash123")
+def test_create_import_registers_job(mock_hash, tmp_path):
     db = create_db()
-
-    department = create_department()
-    batch = create_batch()
-    group = create_group()
-
-    db.scalar.side_effect = [
-        department,
-        batch,
-        group,
-        None,
-    ]
-
     file_path = tmp_path / "students.xlsx"
     file_path.write_bytes(b"test")
 
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
+    job = ImportService.create_import(
+        db=db, file_path=str(file_path), filename="students.xlsx", created_by=2
     )
 
-    assert result["status"] == "completed"
-    assert result["total_rows"] == 1
-    assert result["valid_rows"] == 1
-    assert result["invalid_rows"] == 0
-    assert result["duplicate_rows"] == 0
-
-    assert result["imported_students"] == ["CSE999"]
-    assert result["skipped_existing"] == []
-    assert result["reference_errors"] == []
-    assert result["validation_errors"] == []
-
-    db.commit.assert_called_once()
-
-    assert not file_path.exists()
-
-
-@patch("app.services.import_service.run_import")
-def test_existing_student_is_skipped(mock_run_import, tmp_path):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE102",
-                "name": "Existing Student",
-                "email": "existing@example.com",
-                "department": "CSE",
-                "batch": "2026",
-                "group": "4A",
-            }
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [],
-    }
-
-    db = create_db()
-
-    department = create_department()
-    batch = create_batch()
-    group = create_group()
-    existing_student = MagicMock()
-
-    db.scalar.side_effect = [
-        department,
-        batch,
-        group,
-        existing_student,
-    ]
-
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
-    )
-
-    assert result["status"] == "completed"
-    assert result["imported_students"] == []
-    assert result["skipped_existing"] == ["CSE102"]
-
+    assert job.status == ImportStatus.CREATED
+    assert job.file_hash == "hash123"
+    db.add.assert_called_once()
     db.commit.assert_called_once()
 
 
-@patch("app.services.import_service.run_import")
-def test_missing_department_creates_reference_error(
-    mock_run_import,
-    tmp_path,
-):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE103",
-                "name": "Student",
-                "email": "student@example.com",
-                "department": "IT",
-                "batch": "2026",
-                "group": "4B",
-            }
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [],
-    }
+# ---------- validate_import ----------
 
+@patch("app.services.import_service.read_excel")
+def test_validate_import_marks_valid_record_accepted(mock_read_excel):
     db = create_db()
-
-    # Department lookup returns nothing.
-    db.scalar.return_value = None
-
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
-    )
-
-    assert result["status"] == "completed"
-    assert result["imported_students"] == []
-
-    assert result["reference_errors"] == [
-        {
-            "roll_no": "CSE103",
-            "field": "department",
-            "value": "IT",
-            "error": "Department not found",
-        }
-    ]
-
-    db.commit.assert_called_once()
-
-
-@patch("app.services.import_service.run_import")
-def test_duplicate_record_is_not_imported(
-    mock_run_import,
-    tmp_path,
-):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE101",
-                "name": "Rahul Kumar",
-                "email": "rahul@example.com",
-                "department": "CSE",
-                "batch": "2026",
-                "group": "4A",
-            },
-            {
-                "roll_no": "CSE101",
-                "name": "Rahul K",
-                "email": "rahulk@example.com",
-                "department": "CSE",
-                "batch": "2026",
-                "group": "4A",
-            },
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [
-            {
-                "roll_no": "CSE101",
-                "rows": [2, 9],
-            }
-        ],
-    }
-
-    db = create_db()
-
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
-    )
-
-    assert result["status"] == "completed"
-    assert result["total_rows"] == 2
-    assert result["valid_rows"] == 2
-    assert result["duplicate_rows"] == 1
-    assert result["imported_students"] == []
-
-    # No database reference lookups should happen because
-    # the records were identified as duplicates first.
-    db.scalar.assert_not_called()
-
-
-@patch("app.services.import_service.run_import")
-def test_validation_errors_are_preserved(
-    mock_run_import,
-    tmp_path,
-):
-    validation_errors = [
-        {
-            "row": 6,
-            "field": "department",
-            "error": "Missing required field: department",
-        },
-        {
-            "row": 7,
-            "field": "email",
-            "error": "Invalid email format",
-        },
-    ]
-
-    mock_run_import.return_value = {
-        "valid_records": [],
-        "invalid_records": [
-            {
-                "roll_no": "CSE105",
-                "name": "Karan Mehta",
-                "email": "karan@example.com",
-            }
-        ],
-        "errors": validation_errors,
-        "duplicates": [],
-    }
-
-    db = create_db()
-
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
-    )
-
-    assert result["status"] == "completed"
-    assert result["total_rows"] == 1
-    assert result["valid_rows"] == 0
-    assert result["invalid_rows"] == 1
-    assert result["validation_errors"] == validation_errors
-
-    db.commit.assert_called_once()
-
-
-@patch("app.services.import_service.run_import")
-def test_missing_batch_creates_reference_error(
-    mock_run_import,
-    tmp_path,
-):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE110",
-                "name": "Student",
-                "email": "student@example.com",
-                "department": "CSE",
-                "batch": "2030",
-                "group": "4A",
-            }
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [],
-    }
-
-    db = create_db()
-
-    department = create_department()
-
     db.scalar.side_effect = [
-        department,
-        None,
+        create_department(), create_batch(), create_group(), None,  # no existing student
     ]
 
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
+    df = make_df(
+        [["CSE101", "Rahul Kumar", "rahul@example.com", "CSE", "2026", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
     )
+    mock_read_excel.return_value = df
 
-    assert result["status"] == "completed"
-    assert result["imported_students"] == []
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
 
-    assert result["reference_errors"] == [
-        {
-            "roll_no": "CSE110",
-            "field": "batch",
-            "value": "2030",
-            "error": "Batch not found",
-        }
-    ]
+    assert job.status == ImportStatus.PREVIEW_READY
+    assert result["summary"]["valid"] == 1
+    assert result["summary"]["ready_to_commit"] == 1
+    assert result["records"][0]["category"] == "VALID"
 
 
-@patch("app.services.import_service.run_import")
-def test_missing_group_creates_reference_error(
-    mock_run_import,
-    tmp_path,
-):
-    mock_run_import.return_value = {
-        "valid_records": [
-            {
-                "roll_no": "CSE111",
-                "name": "Student",
-                "email": "student@example.com",
-                "department": "CSE",
-                "batch": "2026",
-                "group": "9Z",
-            }
-        ],
-        "invalid_records": [],
-        "errors": [],
-        "duplicates": [],
-    }
-
+@patch("app.services.import_service.read_excel")
+def test_validate_import_flags_invalid_email(mock_read_excel):
     db = create_db()
 
-    department = create_department()
-    batch = create_batch()
+    df = make_df(
+        [["CSE102", "Priya", "not-an-email", "CSE", "2026", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
 
-    # Department → Batch → Group lookup → fallback Group lookup
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    assert result["summary"]["invalid"] == 1
+    assert result["records"][0]["category"] == "INVALID"
+    assert any(e["field"] == "email" for e in result["records"][0]["field_errors"])
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_flags_unknown_department_as_reference_error(mock_read_excel):
+    db = create_db()
+    db.scalar.return_value = None  # department lookup fails
+
+    df = make_df(
+        [["CSE103", "Aman", "aman@example.com", "XYZ", "2026", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    assert result["summary"]["reference_errors"] == 1
+    assert result["records"][0]["category"] == "REFERENCE_ERROR"
+    assert result["records"][0]["reference_errors"][0]["error_code"] == "UNKNOWN_DEPARTMENT"
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_flags_existing_student(mock_read_excel):
+    db = create_db()
+    existing = MagicMock()
+    existing.id = 99
+    db.scalar.side_effect = [create_department(), create_batch(), create_group(), existing]
+
+    df = make_df(
+        [["CSE104", "Neha", "neha@example.com", "CSE", "2026", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    assert result["summary"]["existing"] == 1
+    assert result["records"][0]["category"] == "EXISTING"
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_flags_duplicate_in_file(mock_read_excel):
+    db = create_db()
     db.scalar.side_effect = [
-        department,
-        batch,
-        None,
-        None,
+        create_department(), create_batch(), create_group(), None,
+        create_department(), create_batch(), create_group(), None,
     ]
 
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
-
-    result = ImportService.process_student_file(
-        db=db,
-        file_path=str(file_path),
-        filename="students.xlsx",
-        created_by=2,
+    df = make_df(
+        [
+            ["CSE105", "Rahul", "rahul@example.com", "CSE", "2026", "4A"],
+            ["CSE105", "Rahul K", "rahulk@example.com", "CSE", "2026", "4A"],
+        ],
+        ["roll_no", "name", "email", "department", "batch", "group"],
     )
+    mock_read_excel.return_value = df
 
-    assert result["status"] == "completed"
-    assert result["imported_students"] == []
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
 
-    assert result["reference_errors"] == [
-        {
-            "roll_no": "CSE111",
-            "field": "group",
-            "value": "9Z",
-            "error": "Group not found",
-        }
-    ]
+    assert result["summary"]["duplicates"] == 1
+    categories = [r["category"] for r in result["records"]]
+    assert "DUPLICATE" in categories
 
 
-@patch("app.services.import_service.run_import")
-def test_import_failure_rolls_back(
-    mock_run_import,
-    tmp_path,
-):
-    mock_run_import.side_effect = RuntimeError(
-        "Excel processing failed"
-    )
+def test_validate_import_rejects_wrong_status():
+    db = create_db()
+    job = make_import_job(status=ImportStatus.COMMITTED)
 
+    with pytest.raises(ValueError):
+        ImportService.validate_import(db, job)
+
+
+@patch("app.services.import_service.read_excel", side_effect=RuntimeError("corrupt file"))
+def test_validate_import_marks_failed_on_exception(mock_read_excel):
+    db = create_db()
+    job = make_import_job()
+
+    with pytest.raises(RuntimeError):
+        ImportService.validate_import(db, job)
+
+    assert job.status == ImportStatus.FAILED
+
+
+# ---------- commit_import ----------
+
+def test_commit_import_inserts_only_valid_records():
+    db = create_db()
+    validation_payload = {
+        "records": [
+            {"row": 2, "category": "VALID", "roll_no": "CSE101", "name": "Rahul", "email": "rahul@example.com",
+             "resolved_department_id": 1, "resolved_batch_id": 1, "resolved_group_id": 1},
+            {"row": 3, "category": "INVALID", "roll_no": "CSE102", "name": "Bad", "email": "bad"},
+            {"row": 4, "category": "EXISTING", "roll_no": "CSE103", "name": "Existing", "email": "e@example.com"},
+        ]
+    }
+    job = make_import_job(status=ImportStatus.PREVIEW_READY, validation_result=json.dumps(validation_payload))
+
+    result = ImportService.commit_import(db, job)
+
+    assert job.status == ImportStatus.COMMITTED
+    assert result["imported_count"] == 1
+    assert result["imported_students"] == ["CSE101"]
+    db.add.assert_called_once()
+    db.commit.assert_called()
+
+
+def test_commit_import_rejects_wrong_status():
+    db = create_db()
+    job = make_import_job(status=ImportStatus.CREATED)
+
+    with pytest.raises(ValueError):
+        ImportService.commit_import(db, job)
+
+
+def test_commit_import_rejects_missing_validation_result():
+    db = create_db()
+    job = make_import_job(status=ImportStatus.PREVIEW_READY, validation_result=None)
+
+    with pytest.raises(ValueError):
+        ImportService.commit_import(db, job)
+
+
+def test_commit_import_rolls_back_on_failure():
     db = create_db()
 
-    file_path = tmp_path / "students.xlsx"
-    file_path.write_bytes(b"test")
+    def add_side_effect(obj):
+        if obj.__class__.__name__ == "Student":
+            raise RuntimeError("constraint violation")
 
-    with pytest.raises(HTTPException) as exc_info:
-        ImportService.process_student_file(
-            db=db,
-            file_path=str(file_path),
-            filename="students.xlsx",
-            created_by=2,
-        )
+    db.add.side_effect = add_side_effect
 
-    assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "Student import failed"
+    validation_payload = {
+        "records": [
+            {"row": 2, "category": "VALID", "roll_no": "CSE101", "name": "Rahul", "email": "rahul@example.com",
+             "resolved_department_id": 1, "resolved_batch_id": 1, "resolved_group_id": 1},
+        ]
+    }
+    job = make_import_job(status=ImportStatus.PREVIEW_READY, validation_result=json.dumps(validation_payload))
+
+    with pytest.raises(RuntimeError):
+        ImportService.commit_import(db, job)
 
     db.rollback.assert_called_once()
-
-    assert not file_path.exists()
+    assert job.status == ImportStatus.FAILED

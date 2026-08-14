@@ -1,29 +1,37 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Department } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Building2, Users, GraduationCap, Loader2 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Building2, Users, GraduationCap } from 'lucide-react';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDepartments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getDepartments();
+      setDepartments(data);
+    } catch (err) {
+      console.error('Failed to load departments', err);
+      const msg = err instanceof Error ? err.message : 'Unable to load department directory. Try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const data = await api.getDepartments();
-        setDepartments(data);
-      } catch (err) {
-        console.error('Failed to load departments', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   return (
     <div className="space-y-6">
@@ -39,12 +47,18 @@ export default function DepartmentsPage() {
         }
       />
 
-      {loading ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-700">Loading department directory...</p>
-        </div>
-      ) : (
+      {loading && <LoadingState message="Loading department directory..." />}
+
+      {!loading && error && <ErrorState message={error} onRetry={fetchDepartments} />}
+
+      {!loading && !error && departments.length === 0 && (
+        <EmptyState
+          title="No departments found."
+          message="No active institutional departments are registered in the database."
+        />
+      )}
+
+      {!loading && !error && departments.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

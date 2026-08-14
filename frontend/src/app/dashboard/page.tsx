@@ -11,6 +11,7 @@ import { CertificationTrainingChart } from '@/components/charts/CertificationTra
 import { FacultyWorkloadChart } from '@/components/charts/FacultyWorkloadChart';
 import { AlertCenter } from '@/components/dashboard/AlertCenter';
 import { CoeSummary } from '@/components/dashboard/CoeSummary';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { RefreshCw, Download } from 'lucide-react';
 import {
   MOCK_KPIS,
@@ -35,14 +36,17 @@ const INITIAL_DASHBOARD_DATA: DashboardData = {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData>(INITIAL_DASHBOARD_DATA);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDashboard = async () => {
     setRefreshing(true);
+    setError(null);
     try {
       const res = await dashboardApi.getDashboardData();
       setData(res);
-    } catch (error) {
-      console.error('Failed to load dashboard metrics', error);
+    } catch (err) {
+      console.error('Failed to load dashboard metrics', err);
+      setError('Unable to fetch live dashboard metrics. Displaying cached operational data.');
     } finally {
       setRefreshing(false);
     }
@@ -79,6 +83,14 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {error && (
+        <ErrorState
+          title="Dashboard Connection Alert"
+          message={error}
+          onRetry={fetchDashboard}
+        />
+      )}
 
       {/* SECTION 1: 7 KPI Cards Grid */}
       <KpiGrid metrics={data.kpis} />

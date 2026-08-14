@@ -4,6 +4,7 @@ Application service for scheduling operations.
 The SchedulingService coordinates the scheduling engine and exposes
 business-level scheduling operations without exposing implementation
 details to API routes or other application layers.
+<<<<<<< HEAD
 
 The service operates on SchedulingEvent objects. Timetable data can be
 loaded from the application's real database models through
@@ -21,6 +22,13 @@ from .workload_optimizer import (
     calculate_faculty_workload,
     calculate_workload_report,
 )
+=======
+"""
+
+from .conflict_detector import detect_conflicts
+from .domain import SchedulingEvent
+from .workload_optimizer import calculate_faculty_workload
+>>>>>>> origin/develop
 
 
 class SchedulingService:
@@ -40,6 +48,7 @@ class SchedulingService:
         """
         self.events = list(events or [])
 
+<<<<<<< HEAD
     @classmethod
     def from_db(cls, db):
         """
@@ -64,18 +73,25 @@ class SchedulingService:
         """
         return [event.to_dict() for event in self.events]
 
+=======
+>>>>>>> origin/develop
     def analyze_conflicts(self):
         """
         Analyze the current timetable for scheduling conflicts.
 
         Returns:
+<<<<<<< HEAD
             List of structured conflicts (Day 1/2 format).
+=======
+            List of structured conflicts.
+>>>>>>> origin/develop
         """
 
         event_data = [event.to_dict() for event in self.events]
 
         return detect_conflicts(event_data)
 
+<<<<<<< HEAD
     def analyze_conflicts_structured(
         self,
         capacities=None,
@@ -95,6 +111,8 @@ class SchedulingService:
             hard_capacities=hard_capacities,
         )
 
+=======
+>>>>>>> origin/develop
     def get_faculty_workload(self, faculty_id):
         """
         Calculate workload for a faculty member.
@@ -111,6 +129,7 @@ class SchedulingService:
         return calculate_faculty_workload(
             event_data,
             faculty_id,
+<<<<<<< HEAD
         )
 
     def get_workload_report(self, capacities=None):
@@ -182,4 +201,6 @@ class SchedulingService:
             scenario,
             capacities=capacities,
             hard_capacities=hard_capacities,
+=======
+>>>>>>> origin/develop
         )

@@ -1,29 +1,37 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Group } from '@/types';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { FolderTree, Users, Loader2 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FolderTree, Users } from 'lucide-react';
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGroups = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getGroups();
+      setGroups(data);
+    } catch (err) {
+      console.error('Failed to load groups', err);
+      const msg = err instanceof Error ? err.message : 'Unable to load section groups. Try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const data = await api.getGroups();
-        setGroups(data);
-      } catch (err) {
-        console.error('Failed to load groups', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+    fetchGroups();
+  }, [fetchGroups]);
 
   return (
     <div className="space-y-6">
@@ -39,12 +47,18 @@ export default function GroupsPage() {
         }
       />
 
-      {loading ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs">
-          <Loader2 className="w-7 h-7 text-indigo-600 animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-700">Loading student section groups...</p>
-        </div>
-      ) : (
+      {loading && <LoadingState message="Loading student section groups..." />}
+
+      {!loading && error && <ErrorState message={error} onRetry={fetchGroups} />}
+
+      {!loading && !error && groups.length === 0 && (
+        <EmptyState
+          title="No student section groups found."
+          message="No active student section groups are registered in the database."
+        />
+      )}
+
+      {!loading && !error && groups.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
