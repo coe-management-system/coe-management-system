@@ -40,7 +40,7 @@ class ImportService:
         return sha256.hexdigest()
 
     @staticmethod
-    def create_import(db: Session, file_path: str, filename: str, created_by: int) -> ImportJob:
+    def create_import(db: Session, file_path: str, filename: str, created_by: int, import_type: str = "student") -> ImportJob:
         """
         Registers a new import job and computes its file hash.
         Does NOT process the workbook yet - that happens in validate_import.
@@ -53,6 +53,7 @@ class ImportService:
 
         import_job = ImportJob(
             filename=filename,
+            import_type=import_type,
             status=ImportStatus.CREATED,
             file_path=file_path,
             file_hash=file_hash,
@@ -74,6 +75,18 @@ class ImportService:
     @staticmethod
     def get_import(db: Session, import_id: int) -> ImportJob | None:
         return db.get(ImportJob, import_id)
+
+    @staticmethod
+    def validate_import_dispatch(db: Session, import_job: ImportJob) -> dict:
+        if import_job.import_type == "department":
+            return ImportService.validate_department_import(db, import_job)
+        return ImportService.validate_import(db, import_job)
+
+    @staticmethod
+    def commit_import_dispatch(db: Session, import_job: ImportJob) -> dict:
+        if import_job.import_type == "department":
+            return ImportService.commit_department_import(db, import_job)
+        return ImportService.commit_import(db, import_job)
 
     @staticmethod
     def validate_import(db: Session, import_job: ImportJob) -> dict:
@@ -243,6 +256,130 @@ class ImportService:
             raise
 
     @staticmethod
+    def validate_department_import(db: Session, import_job: ImportJob) -> dict:
+        """
+        Department-specific validation. Mirrors validate_import's structure
+        but uses Department's own required fields (code, name) and identity
+        field (code) for duplicate/existing detection. Writes ZERO records.
+        """
+        if import_job.status not in (ImportStatus.CREATED, ImportStatus.FAILED):
+            raise ValueError(f"Cannot validate import in status '{import_job.status}'")
+
+        import_job.status = ImportStatus.PROCESSING
+        db.commit()
+
+        try:
+            df = read_excel(import_job.file_path)
+            excel_columns = detect_columns(df)
+
+            dept_mapping_rules = {
+                "code": ["code", "dept code", "department code", "dept_code"],
+                "name": ["name", "department name", "department_name", "dept name"],
+            }
+
+            mapping = {}
+            unmapped_columns = []
+            for col in excel_columns:
+                normalized_col = col.strip().lower()
+                matched = False
+                for canonical, variants in dept_mapping_rules.items():
+                    if normalized_col in variants:
+                        mapping[col] = canonical
+                        matched = True
+                        break
+                if not matched:
+                    unmapped_columns.append(col)
+
+            records = []
+            for idx, row in df.iterrows():
+                row_number = idx + 2
+                raw_record = {mapping[col]: row[col] for col in df.columns if col in mapping}
+                normalized = {k: ("" if v is None else str(v).strip()) for k, v in raw_record.items()}
+                normalized["_row"] = row_number
+                records.append(normalized)
+
+            resolved_records = []
+            for record in records:
+                row_number = record["_row"]
+                field_errors = []
+
+                code = record.get("code", "")
+                name = record.get("name", "")
+
+                if not code:
+                    field_errors.append({"row": row_number, "field": "code", "error": "Missing required field: code"})
+                if not name:
+                    field_errors.append({"row": row_number, "field": "name", "error": "Missing required field: name"})
+
+                category = "INVALID" if field_errors else "VALID"
+
+                existing_department = None
+                if category == "VALID":
+                    existing_department = db.scalar(select(Department).where(Department.code == code))
+                    if existing_department is not None:
+                        category = "EXISTING"
+
+                resolved_records.append({
+                    "code": code,
+                    "name": name,
+                    "row": row_number,
+                    "category": category,
+                    "field_errors": field_errors,
+                    "reference_errors": [],
+                    "existing_department_id": existing_department.id if existing_department else None,
+                })
+
+            duplicate_check_input = [
+                {"roll_no": r["code"], "_row": r["row"]}
+                for r in resolved_records if r["category"] == "VALID"
+            ]
+            duplicates = detect_duplicates(duplicate_check_input)
+            duplicate_rows = set()
+            for dup in duplicates:
+                duplicate_rows.update(dup["rows"][1:])
+
+            for record in resolved_records:
+                if record["row"] in duplicate_rows:
+                    record["category"] = "DUPLICATE"
+
+            valid_count = sum(1 for r in resolved_records if r["category"] == "VALID")
+            invalid_count = sum(1 for r in resolved_records if r["category"] == "INVALID")
+            existing_count = sum(1 for r in resolved_records if r["category"] == "EXISTING")
+            duplicate_count = sum(1 for r in resolved_records if r["category"] == "DUPLICATE")
+
+            validation_payload = {
+                "mapping": mapping,
+                "unmapped_columns": unmapped_columns,
+                "records": resolved_records,
+                "duplicates": duplicates,
+                "summary": {
+                    "total_rows": len(resolved_records),
+                    "valid": valid_count,
+                    "invalid": invalid_count,
+                    "reference_errors": 0,
+                    "existing": existing_count,
+                    "duplicates": duplicate_count,
+                    "ready_to_commit": valid_count,
+                },
+            }
+
+            import_job.total_rows = len(resolved_records)
+            import_job.valid_rows = valid_count
+            import_job.invalid_rows = invalid_count
+            import_job.duplicate_rows = duplicate_count
+            import_job.validation_result = json.dumps(validation_payload)
+            import_job.status = ImportStatus.PREVIEW_READY
+            db.commit()
+
+            return validation_payload
+
+        except Exception as exc:
+            import_job.status = ImportStatus.FAILED
+            import_job.error_message = str(exc)
+            db.commit()
+            raise
+
+    @staticmethod
     def list_imports(db: Session, limit: int = 50) -> list[ImportJob]:
         return list(
             db.scalars(
@@ -308,6 +445,51 @@ class ImportService:
                 "status": import_job.status,
                 "imported_count": len(imported_roll_numbers),
                 "imported_students": imported_roll_numbers,
+            }
+
+        except Exception as exc:
+            db.rollback()
+            import_job.status = ImportStatus.FAILED
+            import_job.error_message = str(exc)
+            db.commit()
+            raise
+
+    @staticmethod
+    def commit_department_import(db: Session, import_job: ImportJob) -> dict:
+        if import_job.status != ImportStatus.PREVIEW_READY:
+            raise ValueError(
+                f"Cannot commit import in status '{import_job.status}'. Import must be in 'preview_ready' status."
+            )
+        if not import_job.validation_result:
+            raise ValueError("No validation result available to commit")
+
+        payload = json.loads(import_job.validation_result)
+        records = payload["records"]
+        imported_codes = []
+
+        try:
+            for record in records:
+                if record["category"] != "VALID":
+                    continue
+                department = Department(code=record["code"], name=record["name"])
+                db.add(department)
+                imported_codes.append(record["code"])
+
+            import_job.status = ImportStatus.COMMITTED
+            import_job.completed_at = datetime.now(timezone.utc)
+            db.commit()
+
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
+
+            return {
+                "import_id": import_job.id,
+                "status": import_job.status,
+                "imported_count": len(imported_codes),
+                "imported_students": imported_codes,
             }
 
         except Exception as exc:
