@@ -83,3 +83,139 @@ def calculate_faculty_workload(events, faculty_id):
         "faculty_id": faculty_id,
         "allocated_hours": total_hours,
     }
+
+
+def calculate_workload_impact(
+    events,
+    candidate,
+    capacities=None,
+    exclude_event_id=None,
+):
+    """
+    Evaluate the workload impact of a proposed candidate change.
+
+    The impact is the projected workload for the candidate's faculty after
+    applying the candidate, compared against the faculty's capacity.
+
+    Args:
+        events: List of timetable event dictionaries.
+        candidate: Candidate dictionary containing faculty_id, start_time,
+            and end_time.
+        capacities: Optional mapping of faculty_id to max hours. When the
+            faculty is absent (or capacities is None), capacity fields are
+            reported as None.
+        exclude_event_id: Optional event id to exclude from the current
+            workload. Used when the candidate moves an existing event.
+
+    Returns:
+        Dictionary containing:
+            - faculty_id
+            - current_hours: Hours currently allocated.
+            - candidate_hours: Hours the candidate would add.
+            - projected_hours: Projected hours after the candidate.
+            - capacity: Maximum hours for the faculty, or None.
+            - overload: Projected hours minus capacity, or None.
+            - status: "optimal", "at_capacity", or "overloaded" when a
+              capacity is known, otherwise "unknown".
+    """
+    faculty_id = candidate["faculty_id"]
+
+    current_hours = 0.0
+    for event in events:
+        if event["faculty_id"] != faculty_id:
+            continue
+        if exclude_event_id is not None and event["id"] == exclude_event_id:
+            continue
+        current_hours += calculate_event_duration(event)
+
+    candidate_hours = calculate_event_duration(candidate)
+    projected_hours = current_hours + candidate_hours
+
+    capacity = (capacities or {}).get(faculty_id)
+
+    if capacity is None:
+        return {
+            "faculty_id": faculty_id,
+            "current_hours": current_hours,
+            "candidate_hours": candidate_hours,
+            "projected_hours": projected_hours,
+            "capacity": None,
+            "overload": None,
+            "status": "unknown",
+        }
+
+    overload = projected_hours - capacity
+
+    if projected_hours > capacity:
+        status = "overloaded"
+    elif projected_hours == capacity:
+        status = "at_capacity"
+    else:
+        status = "optimal"
+
+    return {
+        "faculty_id": faculty_id,
+        "current_hours": current_hours,
+        "candidate_hours": candidate_hours,
+        "projected_hours": projected_hours,
+        "capacity": capacity,
+        "overload": overload,
+        "status": status,
+    }
+
+
+def calculate_workload_report(events, capacities=None):
+    """
+    Calculate a workload report for every faculty member in the timetable.
+
+    Args:
+        events: List of timetable event dictionaries.
+        capacities: Optional mapping of faculty_id to max hours.
+
+    Returns:
+        List of workload dictionaries, one per faculty member. Each entry
+        contains faculty_id, allocated_hours, capacity, overload, and
+        status.
+    """
+    faculty_ids = sorted({event["faculty_id"] for event in events})
+
+    report = []
+
+    for faculty_id in faculty_ids:
+        allocated = calculate_faculty_workload(events, faculty_id)[
+            "allocated_hours"
+        ]
+        capacity = (capacities or {}).get(faculty_id)
+
+        if capacity is None:
+            report.append(
+                {
+                    "faculty_id": faculty_id,
+                    "allocated_hours": allocated,
+                    "capacity": None,
+                    "overload": None,
+                    "status": "unknown",
+                }
+            )
+            continue
+
+        overload = allocated - capacity
+
+        if allocated > capacity:
+            status = "overloaded"
+        elif allocated == capacity:
+            status = "at_capacity"
+        else:
+            status = "optimal"
+
+        report.append(
+            {
+                "faculty_id": faculty_id,
+                "allocated_hours": allocated,
+                "capacity": capacity,
+                "overload": overload,
+                "status": status,
+            }
+        )
+
+    return report

@@ -8,6 +8,9 @@ from app.api.routes.groups import router as groups_router
 from app.api.routes.faculty import router as faculty_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.imports import router as imports_router
+from app.api.routes.timetable import router as timetable_router
+from app.api.routes.workload import router as workload_router
+from app.api.routes.scheduling import router as scheduling_router
 
 
 app = FastAPI(
@@ -53,5 +56,20 @@ app.include_router(
 
 app.include_router(
     imports_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    timetable_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    workload_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    scheduling_router,
     prefix="/api/v1",
 )
