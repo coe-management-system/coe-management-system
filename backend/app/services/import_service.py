@@ -504,4 +504,3 @@ class ImportService:
                 except Exception:
                     pass
             raise
-            raise
