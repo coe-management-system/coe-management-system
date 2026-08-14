@@ -9,6 +9,7 @@ from app.api.routes.faculty import router as faculty_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.imports import router as imports_router
 from app.api.routes.attendance import router as attendance_router
+from app.api.routes.syllabus import router as syllabus_router
 
 app = FastAPI(
     title="COE Management System",
@@ -58,5 +59,10 @@ app.include_router(
 
 app.include_router(
     attendance_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    syllabus_router,
     prefix="/api/v1",
 )
