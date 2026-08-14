@@ -101,7 +101,9 @@ export const CreateStudentModal: React.FC<CreateStudentModalProps> = ({
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.statusCode === 409) {
-          setErrorMessage('Roll number already exists.');
+
+          setErrorMessage('Student already exists with this roll number.');
+
         } else {
           setErrorMessage(err.message);
         }

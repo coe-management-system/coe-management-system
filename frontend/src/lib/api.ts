@@ -221,6 +221,9 @@ export interface StudentCreatePayload {
 }
 
 export interface ImportResultSummary {
+
+  import_job_id?: number;
+
   filename: string;
   import_id: string;
   status: string;
@@ -313,7 +316,9 @@ export const api = {
     return normalizeStudent(data);
   },
 
-  // POST /api/v1/imports/excel
+
+  // POST /api/v1/imports (or /api/v1/imports/excel)
+
   async importExcel(file: File): Promise<ImportResultSummary> {
     const formData = new FormData();
     formData.append('file', file);
@@ -326,13 +331,48 @@ export const api = {
       }
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/imports/excel`, {
+
+    let response = await fetch(`${API_BASE_URL}/api/v1/imports`, {
+
       method: 'POST',
       headers,
       body: formData,
     });
 
-    return handleApiResponse<ImportResultSummary>(response);
+
+    if (response.status === 404) {
+      response = await fetch(`${API_BASE_URL}/api/v1/imports/excel`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+    }
+
+    const data = await handleApiResponse<Record<string, unknown>>(response);
+
+    const importedCount = Array.isArray(data.imported_students)
+      ? data.imported_students.length
+      : Number(data.imported_students || 0);
+
+    const skippedCount = Array.isArray(data.skipped_existing)
+      ? data.skipped_existing.length
+      : Number(data.skipped_students || 0);
+
+    return {
+      import_job_id: Number(data.import_job_id || 0),
+      import_id: String(data.import_job_id || data.import_id || 'IMP-JOB'),
+      filename: String(data.filename || file.name),
+      status: String(data.status || 'COMPLETED'),
+      total_rows: Number(data.total_rows || 0),
+      valid_rows: Number(data.valid_rows || 0),
+      invalid_rows: Number(data.invalid_rows || 0),
+      duplicate_rows: Number(data.duplicate_rows || 0),
+      imported_students: importedCount,
+      skipped_students: skippedCount,
+      validation_errors: (data.validation_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
+      reference_errors: (data.reference_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
+    };
+
   },
 
   // GET /api/v1/departments
