@@ -13,6 +13,7 @@ import { Users, GraduationCap, Building2, UserCheck, UserPlus, ChevronLeft, Chev
 
 const ITEMS_PER_PAGE = 10;
 
+
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,7 @@ export default function StudentsPage() {
 
   const handleStudentCreated = (newStudent: Student) => {
     setStudents((prev) => [newStudent, ...prev]);
+
     setCurrentPage(1);
   };
 
@@ -94,6 +96,7 @@ export default function StudentsPage() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalStudents);
   const paginatedStudents = students.slice(startIndex, endIndex);
+
 
   return (
     <div className="space-y-6">
@@ -113,6 +116,7 @@ export default function StudentsPage() {
             <div className="hidden sm:flex items-center space-x-2 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100 text-xs text-indigo-700 font-semibold">
               <Users className="w-4 h-4 text-indigo-600" />
               <span>{totalStudents} Enrolled Total</span>
+
             </div>
           </div>
         }

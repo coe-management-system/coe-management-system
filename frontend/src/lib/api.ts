@@ -221,7 +221,9 @@ export interface StudentCreatePayload {
 }
 
 export interface ImportResultSummary {
+
   import_job_id?: number;
+
   filename: string;
   import_id: string;
   status: string;
@@ -314,7 +316,9 @@ export const api = {
     return normalizeStudent(data);
   },
 
+
   // POST /api/v1/imports (or /api/v1/imports/excel)
+
   async importExcel(file: File): Promise<ImportResultSummary> {
     const formData = new FormData();
     formData.append('file', file);
@@ -327,11 +331,14 @@ export const api = {
       }
     }
 
+
     let response = await fetch(`${API_BASE_URL}/api/v1/imports`, {
+
       method: 'POST',
       headers,
       body: formData,
     });
+
 
     if (response.status === 404) {
       response = await fetch(`${API_BASE_URL}/api/v1/imports/excel`, {
@@ -365,6 +372,7 @@ export const api = {
       validation_errors: (data.validation_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
       reference_errors: (data.reference_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
     };
+
   },
 
   // GET /api/v1/departments
