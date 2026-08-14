@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, String, Text
+from datetime import date, datetime
+
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -17,6 +19,36 @@ class TrainingProgram(Base):
     description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
+    )
+
+    coe_id: Mapped[int] = mapped_column(
+        ForeignKey("coes.id"),
+        nullable=False,
+    )
+
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id"),
+        nullable=False,
+    )
+
+    technology_id: Mapped[int] = mapped_column(
+        ForeignKey("technologies.id"),
+        nullable=False,
+    )
+
+    start_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
+    end_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
+    planned_hours: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
     )
 
 
@@ -42,5 +74,25 @@ class TrainingSession(Base):
 
     title: Mapped[str] = mapped_column(
         String(150),
+        nullable=False,
+    )
+
+    faculty_id: Mapped[int] = mapped_column(
+        ForeignKey("faculty.id"),
+        nullable=False,
+    )
+
+    start_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+    )
+
+    end_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+    )
+
+    hours: Mapped[float] = mapped_column(
+        Float,
         nullable=False,
     )

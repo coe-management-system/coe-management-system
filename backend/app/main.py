@@ -10,11 +10,17 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.imports import router as imports_router
 from app.api.routes.attendance import router as attendance_router
 from app.api.routes.syllabus import router as syllabus_router
+from app.api.routes.coe import router as coe_router
+from app.api.routes.training import router as training_router
+from app.api.routes.subjects import router as subjects_router
+from app.api.routes.company import router as company_router
+from app.api.routes.technology import router as technology_router
 
 app = FastAPI(
     title="COE Management System",
     version="1.0.0",
 )
+
 
 
 app.include_router(
@@ -64,5 +70,30 @@ app.include_router(
 
 app.include_router(
     syllabus_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    coe_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    training_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    subjects_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    company_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    technology_router,
     prefix="/api/v1",
 )

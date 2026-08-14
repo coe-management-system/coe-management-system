@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -5,10 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.user import User
 from app.models.role import Role
+from app.models.user import User
 
-from collections.abc import Callable
 
 security_scheme = HTTPBearer()
 
@@ -78,3 +79,6 @@ def require_role(required_role: str) -> Callable:
         return current_user
 
     return role_dependency
+
+
+faculty_required = require_role("faculty")
