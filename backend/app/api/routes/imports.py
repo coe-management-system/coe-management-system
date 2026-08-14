@@ -143,6 +143,31 @@ def create_import(
     finally:
         file.file.close()
 
+@router.get(
+    "",
+    response_model=list[ImportDetailResponse],
+)
+def list_imports(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    import_jobs = ImportService.list_imports(db)
+    return [
+        ImportDetailResponse(
+            import_id=job.id,
+            filename=job.filename,
+            status=job.status,
+            created_by=job.created_by,
+            created_at=job.created_at,
+            completed_at=job.completed_at,
+            total_rows=job.total_rows,
+            valid_rows=job.valid_rows,
+            invalid_rows=job.invalid_rows,
+            duplicate_rows=job.duplicate_rows,
+            error_message=job.error_message,
+        )
+        for job in import_jobs
+    ]
 
 @router.get(
     "/{import_id}",
