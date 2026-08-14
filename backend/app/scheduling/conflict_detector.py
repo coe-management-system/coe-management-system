@@ -123,3 +123,36 @@ def detect_conflicts(events):
                 )
 
     return conflicts
+
+
+def detect_conflicts_structured(
+    events,
+    capacities=None,
+    hard_capacities=None,
+):
+    """
+    Detect conflicts through the constraint system.
+
+    This is the Day 3 constraint-aware conflict detector. It produces
+    structured, explainable :class:`ConstraintViolation` dictionaries
+    for faculty, batch, group, room, time, and workload constraints.
+
+    Args:
+        events: List of timetable event dictionaries.
+        capacities: Optional mapping of faculty_id to preferred max hours
+            used by the workload constraint.
+        hard_capacities: Optional mapping of faculty_id to absolute max
+            hours.
+
+    Returns:
+        List of structured constraint violation dictionaries.
+    """
+    from .constraint_engine import ConstraintEngine
+
+    return [
+        violation.to_dict()
+        for violation in ConstraintEngine(
+            capacities=capacities,
+            hard_capacities=hard_capacities,
+        ).evaluate(events)
+    ]
