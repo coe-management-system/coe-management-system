@@ -90,3 +90,62 @@ def test_get_import_not_found():
     response = client.get("/api/v1/imports/99999")
     assert response.status_code == 404
     app.dependency_overrides[get_db] = override_get_db
+
+
+def test_get_import_errors_not_found():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    mock_db = MagicMock()
+    mock_db.get.return_value = None
+
+    def override_db_returns_none():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_db_returns_none
+    response = client.get("/api/v1/imports/99999/errors")
+    assert response.status_code == 404
+    app.dependency_overrides[get_db] = override_get_db
+
+
+def test_get_import_errors_before_validation_returns_empty():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    mock_job = MagicMock()
+    mock_job.id = 1
+    mock_job.validation_result = None
+    mock_db = MagicMock()
+    mock_db.get.return_value = mock_job
+
+    def override_db_with_job():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_db_with_job
+    response = client.get("/api/v1/imports/1/errors")
+    assert response.status_code == 200
+    assert response.json() == {"import_id": 1, "errors": []}
+    app.dependency_overrides[get_db] = override_get_db
+
+
+def test_get_import_errors_after_validation_lists_non_valid_rows():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    mock_job = MagicMock()
+    mock_job.id = 1
+    mock_job.validation_result = '{"records": [' \
+        '{"row": 2, "category": "VALID", "field_errors": [], "reference_errors": []},' \
+        '{"row": 3, "category": "INVALID", "field_errors": [{"field": "email", "error": "bad format"}], "reference_errors": []},' \
+        '{"row": 4, "category": "REFERENCE_ERROR", "field_errors": [], "reference_errors": [{"field": "department", "value": "XX", "error_code": "UNKNOWN_DEPARTMENT", "message": "not found"}]}' \
+        ']}'
+    mock_db = MagicMock()
+    mock_db.get.return_value = mock_job
+
+    def override_db_with_job():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_db_with_job
+    response = client.get("/api/v1/imports/1/errors")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["import_id"] == 1
+    assert len(body["errors"]) == 2
+    assert all(e["category"] != "VALID" for e in body["errors"])
+    rows = {e["row"] for e in body["errors"]}
+    assert rows == {3, 4}
+    app.dependency_overrides[get_db] = override_get_db
