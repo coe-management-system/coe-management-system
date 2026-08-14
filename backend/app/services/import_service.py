@@ -12,6 +12,8 @@ from app.excel.column_mapper import map_columns
 from app.excel.normalizer import normalize_record
 from app.excel.validator import validate_record
 from app.excel.duplicate_detector import detect_duplicates
+from app.excel.import_definitions import FieldMapping
+from app.excel.mapping_engine import map_columns_for_definition
 from app.models.batch import Batch
 from app.models.department import Department
 from app.models.group import Group
@@ -272,24 +274,16 @@ class ImportService:
             df = read_excel(import_job.file_path)
             excel_columns = detect_columns(df)
 
-            dept_mapping_rules = {
-                "code": ["code", "dept code", "department code", "dept_code"],
-                "name": ["name", "department name", "department_name", "dept name"],
-            }
+            dept_field_mappings = [
+                FieldMapping("code", ["code", "dept code", "department code", "dept_code"]),
+                FieldMapping("name", ["name", "department name", "department_name", "dept name"]),
+            ]
 
-            mapping = {}
-            unmapped_columns = []
-            for col in excel_columns:
-                normalized_col = col.strip().lower()
-                matched = False
-                for canonical, variants in dept_mapping_rules.items():
-                    if normalized_col in variants:
-                        mapping[col] = canonical
-                        matched = True
-                        break
-                if not matched:
-                    unmapped_columns.append(col)
-
+            mapping_result = map_columns_for_definition(excel_columns, dept_field_mappings)
+            mapping = mapping_result["mapping"]
+            unmapped_columns = mapping_result["unmapped_columns"]
+            ambiguous_columns = mapping_result["ambiguous_columns"]
+            column_status = mapping_result["column_status"]
             records = []
             for idx, row in df.iterrows():
                 row_number = idx + 2
@@ -350,6 +344,8 @@ class ImportService:
             validation_payload = {
                 "mapping": mapping,
                 "unmapped_columns": unmapped_columns,
+                "ambiguous_columns": ambiguous_columns,
+                "column_status": column_status,
                 "records": resolved_records,
                 "duplicates": duplicates,
                 "summary": {
