@@ -6,14 +6,18 @@ import { Student } from '@/types/student';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StudentFilters } from '@/components/students/StudentFilters';
 import { StudentTable } from '@/components/students/StudentTable';
+import { CreateStudentModal } from '@/components/students/CreateStudentModal';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Users, GraduationCap, Building2, UserCheck } from 'lucide-react';
+import { Users, GraduationCap, Building2, UserCheck, UserPlus } from 'lucide-react';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +56,10 @@ export default function StudentsPage() {
     setGroup('All');
   };
 
+  const handleStudentCreated = (newStudent: Student) => {
+    setStudents((prev) => [newStudent, ...prev]);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -59,9 +67,18 @@ export default function StudentsPage() {
         subtitle="Institutional Directory, Academic Progress & CoE Credentials Tracking"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Students' }]}
         action={
-          <div className="flex items-center space-x-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 text-xs text-indigo-700 font-semibold">
-            <Users className="w-4 h-4 text-indigo-600" />
-            <span>{students.length} Enrolled Total</span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 transition-all flex items-center space-x-1.5 cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Register New Student</span>
+            </button>
+            <div className="hidden sm:flex items-center space-x-2 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100 text-xs text-indigo-700 font-semibold">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <span>{students.length} Enrolled Total</span>
+            </div>
           </div>
         }
       />
@@ -122,6 +139,13 @@ export default function StudentsPage() {
       {!loading && !error && (
         <StudentTable students={students} />
       )}
+
+      {/* Student Creation Modal */}
+      <CreateStudentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onStudentCreated={handleStudentCreated}
+      />
     </div>
   );
 }
