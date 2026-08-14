@@ -71,6 +71,7 @@ def _validate_workbook_readable(file_path: str) -> None:
 )
 def create_import(
     file: UploadFile = File(...),
+    import_type: str = "student",
     db: Session = Depends(get_db),
     current_user: User = Depends(faculty_required),
 ):
@@ -115,11 +116,18 @@ def create_import(
 
         _validate_workbook_readable(temporary_path)
 
+        if import_type not in ("student", "department"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported import_type: {import_type}",
+            )
+
         import_job = ImportService.create_import(
             db=db,
             file_path=temporary_path,
             filename=file.filename,
             created_by=current_user.id,
+            import_type=import_type,
         )
 
         return ImportCreateResponse(
@@ -215,7 +223,7 @@ def validate_import(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
 
     try:
-        result = ImportService.validate_import(db, import_job)
+        result = ImportService.validate_import_dispatch(db, import_job)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except Exception as exc:
@@ -252,7 +260,7 @@ def commit_import(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
 
     try:
-        result = ImportService.commit_import(db, import_job)
+        result = ImportService.commit_import_dispatch(db, import_job)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except Exception as exc:

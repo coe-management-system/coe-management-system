@@ -17,6 +17,12 @@ class ImportJob(Base):
         String(255),
         nullable=False,
     )
+    
+    import_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="student",
+    )
 
     status: Mapped[str] = mapped_column(
         String(30),
