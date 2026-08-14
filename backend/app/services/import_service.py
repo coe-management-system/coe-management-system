@@ -448,6 +448,11 @@ class ImportService:
             import_job.status = ImportStatus.FAILED
             import_job.error_message = str(exc)
             db.commit()
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
             raise
 
     @staticmethod
@@ -493,4 +498,10 @@ class ImportService:
             import_job.status = ImportStatus.FAILED
             import_job.error_message = str(exc)
             db.commit()
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
+            raise
             raise
