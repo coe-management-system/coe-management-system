@@ -237,6 +237,8 @@ def validate_import(
         status=import_job.status,
         mapping=result["mapping"],
         unmapped_columns=result["unmapped_columns"],
+        ambiguous_columns=result.get("ambiguous_columns", []),
+        column_status=result.get("column_status", []),
         summary=result["summary"],
         records=result["records"],
     )
