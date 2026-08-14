@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class ToolResult(BaseModel):
     success: bool
-    data: Any | None
+    data: dict | list | None = None
     error: str | None = None
     metadata: dict = Field(default_factory=dict)
 
@@ -30,10 +30,23 @@ class ToolRegistry:
         """Retrieves a tool by name."""
         return self._tools.get(name)
 
-    def execute(self, name: str, **kwargs) -> ToolResult:
+    def is_authorized(self, required_permission: str, user_role: str) -> bool:
+        """Checks if user_role has sufficient authorization for required_permission."""
+        role = user_role.upper()
+        perm = required_permission.upper()
+
+        if perm in ("READ", "STUDENT", "ALL", "PUBLIC"):
+            return True
+        if perm in ("FACULTY", "SIMULATION"):
+            return role in ("FACULTY", "ADMIN")
+        if perm == "ADMIN":
+            return role == "ADMIN"
+        return True
+
+    def execute(self, name: str, user_role: str = "FACULTY", **kwargs) -> ToolResult:
         """
         Executes a registered tool by name with the given arguments.
-        Handles parameter validation and catches exceptions to return a structured ToolResult.
+        Handles parameter validation, RBAC checks, and catches exceptions to return a structured ToolResult.
         """
         tool = self.get_tool(name)
         if not tool:
@@ -41,6 +54,15 @@ class ToolRegistry:
                 success=False,
                 data=None,
                 error=f"Tool '{name}' not found in registry.",
+            )
+
+        # RBAC Check
+        if not self.is_authorized(tool.permission, user_role):
+            return ToolResult(
+                success=False,
+                data=None,
+                error=f"Permission Denied: User role '{user_role}' is not authorized to execute tool '{name}'. Required permission level: '{tool.permission}'.",
+                metadata={"tool": tool.name, "rbac_status": "DENIED", "user_role": user_role}
             )
 
         # Validate required parameters
@@ -89,3 +111,4 @@ class ToolRegistry:
             )
 
 registry = ToolRegistry()
+

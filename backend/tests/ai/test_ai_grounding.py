@@ -1,23 +1,37 @@
 from app.ai.assistant import run_assistant_query
+from app.ai.tools.registry import registry, ToolResult
 
-def test_grounding_tool_returns_data():
-    # Uses mock attendance
+def test_grounding_tool_returns_data(monkeypatch):
+    dummy_data = [{"roll_no": "CSE101", "name": "Rahul", "attendance_percentage": 68.0}]
+    tool = registry.get_tool("get_low_attendance_students")
+    monkeypatch.setattr(
+        tool, 
+        "executor", 
+        lambda **kwargs: ToolResult(success=True, data=dummy_data, metadata={"source": "postgresql"})
+    )
+    
     response = run_assistant_query("Which students are below 75% attendance?")
-    assert "Found 2 record(s)" in response["response"]
+    assert "Found 1 record(s)" in response["response"]
 
 def test_grounding_tool_returns_empty(monkeypatch):
-    # We patch the mock to return empty list
-    import app.ai.tools.attendance_tools
-    monkeypatch.setattr(app.ai.tools.attendance_tools, "get_low_attendance_students_mock", lambda: [])
+    tool = registry.get_tool("get_low_attendance_students")
+    monkeypatch.setattr(
+        tool, 
+        "executor", 
+        lambda **kwargs: ToolResult(success=True, data=[], metadata={"source": "postgresql"})
+    )
+    
     response = run_assistant_query("Which students are below 75% attendance?")
     assert "No matching records found" in response["response"]
 
 def test_grounding_tool_failure(monkeypatch):
-    def raise_error():
-        raise Exception("DB Failure")
+    tool = registry.get_tool("get_low_attendance_students")
+    monkeypatch.setattr(
+        tool, 
+        "executor", 
+        lambda **kwargs: ToolResult(success=False, error="Attendance service unavailable", data=None, metadata={"source": "postgresql"})
+    )
     
-    import app.ai.tools.attendance_tools
-    monkeypatch.setattr(app.ai.tools.attendance_tools, "get_low_attendance_students_mock", raise_error)
     response = run_assistant_query("Which students are below 75% attendance?")
     assert "Unable to retrieve requested information" in response["response"]
     assert "Attendance service unavailable" in response["response"]
