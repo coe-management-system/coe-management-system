@@ -243,6 +243,14 @@ class ImportService:
             raise
 
     @staticmethod
+    def list_imports(db: Session, limit: int = 50) -> list[ImportJob]:
+        return list(
+            db.scalars(
+                select(ImportJob).order_by(ImportJob.created_at.desc()).limit(limit)
+            )
+        )
+
+    @staticmethod
     def get_preview(import_job: ImportJob) -> dict:
         if not import_job.validation_result:
             raise ValueError("No validation result available for this import")
