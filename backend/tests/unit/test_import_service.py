@@ -356,3 +356,15 @@ def test_concurrent_commit_second_caller_rejected_after_first_succeeds():
 
     with pytest.raises(ValueError, match="Cannot commit import in status .committed."):
         ImportService.commit_import(db, job)
+
+
+def test_no_response_schema_exposes_file_path():
+    """
+    Security regression guard: ensure no import response schema ever
+    exposes the server-side file_path, only the safe file_hash digest.
+    """
+    from app.schemas import import_schema
+    import inspect
+
+    source = inspect.getsource(import_schema)
+    assert "file_path" not in source
