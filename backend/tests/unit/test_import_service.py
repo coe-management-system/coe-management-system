@@ -260,3 +260,55 @@ def test_commit_import_rolls_back_on_failure():
 
     db.rollback.assert_called_once()
     assert job.status == ImportStatus.FAILED
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_summary_counts_are_internally_consistent(mock_read_excel):
+    db = create_db()
+    db.scalar.side_effect = [
+        create_department(), create_batch(), create_group(), None,  # row 1: VALID
+        None,  # row 2: unknown department -> REFERENCE_ERROR
+    ]
+
+    df = make_df(
+        [
+            ["CSE101", "Rahul Kumar", "rahul@example.com", "CSE", "2026", "4A"],
+            ["CSE102", "Priya Singh", "not-an-email", "XX", "2026", "4A"],
+        ],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+    summary = result["summary"]
+
+    total_from_categories = (
+        summary["valid"] + summary["invalid"] + summary["reference_errors"]
+        + summary["existing"] + summary["duplicates"]
+    )
+    assert total_from_categories == summary["total_rows"]
+    assert summary["ready_to_commit"] == summary["valid"]
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_department_import_summary_counts_are_internally_consistent(mock_read_excel):
+    db = create_db()
+    db.scalar.side_effect = [None]  # no existing department for the one valid row
+
+    df = make_df(
+        [["CSE", "Computer Science"]],
+        ["code", "name"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_department_import(db, job)
+    summary = result["summary"]
+
+    total_from_categories = (
+        summary["valid"] + summary["invalid"] + summary["reference_errors"]
+        + summary["existing"] + summary["duplicates"]
+    )
+    assert total_from_categories == summary["total_rows"]
+    assert summary["ready_to_commit"] == summary["valid"]
