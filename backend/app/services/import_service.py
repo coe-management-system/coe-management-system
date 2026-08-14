@@ -12,6 +12,8 @@ from app.excel.column_mapper import map_columns
 from app.excel.normalizer import normalize_record
 from app.excel.validator import validate_record
 from app.excel.duplicate_detector import detect_duplicates
+from app.excel.import_definitions import FieldMapping
+from app.excel.mapping_engine import map_columns_for_definition
 from app.models.batch import Batch
 from app.models.department import Department
 from app.models.group import Group
@@ -272,23 +274,17 @@ class ImportService:
             df = read_excel(import_job.file_path)
             excel_columns = detect_columns(df)
 
-            dept_mapping_rules = {
-                "code": ["code", "dept code", "department code", "dept_code"],
-                "name": ["name", "department name", "department_name", "dept name"],
-            }
 
-            mapping = {}
-            unmapped_columns = []
-            for col in excel_columns:
-                normalized_col = col.strip().lower()
-                matched = False
-                for canonical, variants in dept_mapping_rules.items():
-                    if normalized_col in variants:
-                        mapping[col] = canonical
-                        matched = True
-                        break
-                if not matched:
-                    unmapped_columns.append(col)
+            dept_field_mappings = [
+                FieldMapping("code", ["code", "dept code", "department code", "dept_code"]),
+                FieldMapping("name", ["name", "department name", "department_name", "dept name"]),
+            ]
+
+            mapping_result = map_columns_for_definition(excel_columns, dept_field_mappings)
+            mapping = mapping_result["mapping"]
+            unmapped_columns = mapping_result["unmapped_columns"]
+            ambiguous_columns = mapping_result["ambiguous_columns"]
+            column_status = mapping_result["column_status"]
 
             records = []
             for idx, row in df.iterrows():
@@ -350,6 +346,7 @@ class ImportService:
             validation_payload = {
                 "mapping": mapping,
                 "unmapped_columns": unmapped_columns,
+
                 "records": resolved_records,
                 "duplicates": duplicates,
                 "summary": {
@@ -452,6 +449,61 @@ class ImportService:
             import_job.status = ImportStatus.FAILED
             import_job.error_message = str(exc)
             db.commit()
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
+            raise
+
+    @staticmethod
+    def commit_department_import(db: Session, import_job: ImportJob) -> dict:
+        if import_job.status != ImportStatus.PREVIEW_READY:
+            raise ValueError(
+                f"Cannot commit import in status '{import_job.status}'. Import must be in 'preview_ready' status."
+            )
+        if not import_job.validation_result:
+            raise ValueError("No validation result available to commit")
+
+        payload = json.loads(import_job.validation_result)
+        records = payload["records"]
+        imported_codes = []
+
+        try:
+            for record in records:
+                if record["category"] != "VALID":
+                    continue
+                department = Department(code=record["code"], name=record["name"])
+                db.add(department)
+                imported_codes.append(record["code"])
+
+            import_job.status = ImportStatus.COMMITTED
+            import_job.completed_at = datetime.now(timezone.utc)
+            db.commit()
+
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
+
+            return {
+                "import_id": import_job.id,
+                "status": import_job.status,
+                "imported_count": len(imported_codes),
+                "imported_students": imported_codes,
+            }
+
+        except Exception as exc:
+            db.rollback()
+            import_job.status = ImportStatus.FAILED
+            import_job.error_message = str(exc)
+            db.commit()
+            if import_job.file_path and Path(import_job.file_path).exists():
+                try:
+                    Path(import_job.file_path).unlink()
+                except Exception:
+                    pass
             raise
 
     @staticmethod

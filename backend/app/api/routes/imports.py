@@ -49,18 +49,30 @@ def _validate_workbook_readable(file_path: str) -> None:
         )
 
     sheet = workbook[workbook.sheetnames[0]]
-    has_data = False
-    for row in sheet.iter_rows(max_row=2):
+    has_header = False
+    for row in sheet.iter_rows(min_row=1, max_row=1):
         if any(cell.value not in (None, "") for cell in row):
-            has_data = True
+            has_header = True
+            break
+
+    has_data_row = False
+    for row in sheet.iter_rows(min_row=2, max_row=2):
+        if any(cell.value not in (None, "") for cell in row):
+            has_data_row = True
             break
 
     workbook.close()
 
-    if not has_data:
+    if not has_header:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The uploaded workbook appears to be empty (no header or data rows found)",
+        )
+
+    if not has_data_row:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded workbook contains headers but no data rows",
         )
 
 
@@ -177,6 +189,7 @@ def list_imports(
         for job in import_jobs
     ]
 
+
 @router.get(
     "/{import_id}",
     response_model=ImportDetailResponse,
@@ -203,6 +216,33 @@ def get_import(
         duplicate_rows=import_job.duplicate_rows,
         error_message=import_job.error_message,
     )
+
+
+@router.get("/{import_id}/errors")
+def get_import_errors(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    import_job = ImportService.get_import(db, import_id)
+    if import_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
+
+    if not import_job.validation_result:
+        return {"import_id": import_job.id, "errors": []}
+
+    payload = ImportService.get_preview(import_job)
+    errors = [
+        {
+            "row": r["row"],
+            "category": r["category"],
+            "field_errors": r.get("field_errors", []),
+            "reference_errors": r.get("reference_errors", []),
+        }
+        for r in payload["records"]
+        if r["category"] != "VALID"
+    ]
+    return {"import_id": import_job.id, "errors": errors}
 
 
 @router.post(
@@ -237,6 +277,8 @@ def validate_import(
         status=import_job.status,
         mapping=result["mapping"],
         unmapped_columns=result["unmapped_columns"],
+        ambiguous_columns=result.get("ambiguous_columns", []),
+        column_status=result.get("column_status", []),
         summary=result["summary"],
         records=result["records"],
     )
