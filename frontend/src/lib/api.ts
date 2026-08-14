@@ -1,6 +1,6 @@
 // Unified API Layer for Center of Excellence Management System
-// Architected for seamless FastAPI backend REST integration & Centralized Error Handling
-// Standardized endpoints: GET /api/v1/students, GET /api/v1/departments, GET /api/v1/batches, GET /api/v1/groups, GET /api/v1/faculty
+// Architected for FastAPI backend REST integration, Auth JWT Token Propagation, & Centralized Error Handling
+// Standardized endpoints: GET/POST /api/v1/auth/*, GET/POST /api/v1/students, GET /api/v1/departments, GET /api/v1/batches, GET /api/v1/groups, GET /api/v1/faculty, POST /api/v1/imports/excel
 
 import { Student, Department, Batch, Group, Faculty, StudentFilterParams } from '@/types';
 import { MOCK_STUDENTS } from './mock-data/students';
@@ -30,6 +30,8 @@ export function getErrorMessageForStatus(status: number): string {
       return 'Access denied. You do not have permission to view or modify this resource.';
     case 404:
       return 'The requested resource was not found on the institutional server.';
+    case 409:
+      return 'Roll number already exists.';
     case 422:
       return 'Invalid request payload or data validation error.';
     case 500:
@@ -39,11 +41,31 @@ export function getErrorMessageForStatus(status: number): string {
   }
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('coe_auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 // Centralized Response Validator & Parser
 async function handleApiResponse<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('coe_unauthorized'));
+    }
+  }
+
   if (response.ok) {
     return (await response.json()) as T;
   }
+
   const message = getErrorMessageForStatus(response.status);
   throw new ApiError(response.status, message);
 }
@@ -146,15 +168,7 @@ function normalizeDepartment(item: Record<string, unknown>): Department {
   const studentCount = Number(item.studentCount || item.student_count || 120);
   const facultyCount = Number(item.facultyCount || item.faculty_count || 15);
 
-  return {
-    id,
-    name,
-    code,
-    description,
-    head,
-    studentCount,
-    facultyCount,
-  };
+  return { id, name, code, description, head, studentCount, facultyCount };
 }
 
 function normalizeBatch(item: Record<string, unknown>): Batch {
@@ -167,14 +181,7 @@ function normalizeBatch(item: Record<string, unknown>): Batch {
   );
   const studentCount = Number(item.studentCount || item.student_count || 100);
 
-  return {
-    id,
-    name,
-    year,
-    department_id: item.department_id as number | undefined,
-    department,
-    studentCount,
-  };
+  return { id, name, year, department_id: item.department_id as number | undefined, department, studentCount };
 }
 
 function normalizeGroup(item: Record<string, unknown>): Group {
@@ -184,19 +191,10 @@ function normalizeGroup(item: Record<string, unknown>): Group {
   const batch = String(
     item.batch || item.batch_name || BATCH_MAP[batchId] || (batchId ? `Batch #${batchId}` : '2026')
   );
-  const department = String(
-    item.department || DEPT_MAP[batchId] || 'CSE'
-  );
+  const department = String(item.department || DEPT_MAP[batchId] || 'CSE');
   const studentCount = Number(item.studentCount || item.student_count || 50);
 
-  return {
-    id,
-    name,
-    batch_id: item.batch_id as number | undefined,
-    batch,
-    department,
-    studentCount,
-  };
+  return { id, name, batch_id: item.batch_id as number | undefined, batch, department, studentCount };
 }
 
 function normalizeFaculty(item: Record<string, unknown>): Faculty {
@@ -210,24 +208,66 @@ function normalizeFaculty(item: Record<string, unknown>): Faculty {
   );
   const role = String(item.role || item.designation || 'Faculty');
 
-  return {
-    id,
-    employee_code: employeeCode,
-    name,
-    email,
-    department_id: item.department_id as number | undefined,
-    department,
-    role,
-  };
+  return { id, employee_code: employeeCode, name, email, department_id: item.department_id as number | undefined, department, role };
+}
+
+export interface StudentCreatePayload {
+  roll_no: string;
+  name: string;
+  email: string;
+  department_id: number;
+  batch_id: number;
+  group_id: number;
+}
+
+export interface ImportResultSummary {
+
+  import_job_id?: number;
+
+  filename: string;
+  import_id: string;
+  status: string;
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  duplicate_rows: number;
+  imported_students: number;
+  skipped_students: number;
+  validation_errors: Array<{ row?: number; message?: string; field?: string; [key: string]: unknown }>;
+  reference_errors: Array<{ row?: number; message?: string; field?: string; [key: string]: unknown }>;
 }
 
 export const api = {
+  // AUTH: POST /api/v1/auth/login
+  async login(username: string, password: string): Promise<{ access_token: string; token_type: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    return handleApiResponse<{ access_token: string; token_type: string }>(response);
+  },
+
+  // AUTH: GET /api/v1/auth/me
+  async getMe(token?: string): Promise<{ id: number; username: string; email: string; role_id: number }> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('coe_auth_token') : null);
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+      method: 'GET',
+      headers,
+    });
+    return handleApiResponse<{ id: number; username: string; email: string; role_id: number }>(response);
+  },
+
   // GET /api/v1/students
   async getStudents(params?: StudentFilterParams): Promise<Student[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/students`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       const data = await handleApiResponse<Record<string, unknown>[]>(response);
       const normalized = Array.isArray(data) ? data.map(normalizeStudent) : [];
@@ -236,7 +276,6 @@ export const api = {
       if (err instanceof ApiError) {
         throw err;
       }
-      // Connection Refused / Network Error Fallback
       await new Promise((resolve) => setTimeout(resolve, 150));
       const normalizedMock = MOCK_STUDENTS.map((item) => normalizeStudent(item as unknown as Record<string, unknown>));
       return filterStudents(normalizedMock, params);
@@ -248,7 +287,7 @@ export const api = {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/students/${id}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       const data = await handleApiResponse<Record<string, unknown>>(response);
       return normalizeStudent(data);
@@ -266,16 +305,84 @@ export const api = {
     return found ? normalizeStudent(found as unknown as Record<string, unknown>) : null;
   },
 
+  // POST /api/v1/students
+  async createStudent(payload: StudentCreatePayload): Promise<Student> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/students`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await handleApiResponse<Record<string, unknown>>(response);
+    return normalizeStudent(data);
+  },
+
+
+  // POST /api/v1/imports (or /api/v1/imports/excel)
+
+  async importExcel(file: File): Promise<ImportResultSummary> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('coe_auth_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+
+    let response = await fetch(`${API_BASE_URL}/api/v1/imports`, {
+
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+
+    if (response.status === 404) {
+      response = await fetch(`${API_BASE_URL}/api/v1/imports/excel`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+    }
+
+    const data = await handleApiResponse<Record<string, unknown>>(response);
+
+    const importedCount = Array.isArray(data.imported_students)
+      ? data.imported_students.length
+      : Number(data.imported_students || 0);
+
+    const skippedCount = Array.isArray(data.skipped_existing)
+      ? data.skipped_existing.length
+      : Number(data.skipped_students || 0);
+
+    return {
+      import_job_id: Number(data.import_job_id || 0),
+      import_id: String(data.import_job_id || data.import_id || 'IMP-JOB'),
+      filename: String(data.filename || file.name),
+      status: String(data.status || 'COMPLETED'),
+      total_rows: Number(data.total_rows || 0),
+      valid_rows: Number(data.valid_rows || 0),
+      invalid_rows: Number(data.invalid_rows || 0),
+      duplicate_rows: Number(data.duplicate_rows || 0),
+      imported_students: importedCount,
+      skipped_students: skippedCount,
+      validation_errors: (data.validation_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
+      reference_errors: (data.reference_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
+    };
+
+  },
+
   // GET /api/v1/departments
   async getDepartments(): Promise<Department[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/departments`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/departments`, { headers: getAuthHeaders() });
       const data = await handleApiResponse<Record<string, unknown>[]>(response);
       return Array.isArray(data) ? data.map(normalizeDepartment) : [];
     } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      }
+      if (err instanceof ApiError) throw err;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_DEPARTMENTS;
@@ -284,13 +391,11 @@ export const api = {
   // GET /api/v1/batches
   async getBatches(): Promise<Batch[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/batches`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/batches`, { headers: getAuthHeaders() });
       const data = await handleApiResponse<Record<string, unknown>[]>(response);
       return Array.isArray(data) ? data.map(normalizeBatch) : [];
     } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      }
+      if (err instanceof ApiError) throw err;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_BATCHES;
@@ -299,13 +404,11 @@ export const api = {
   // GET /api/v1/groups
   async getGroups(): Promise<Group[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/groups`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/groups`, { headers: getAuthHeaders() });
       const data = await handleApiResponse<Record<string, unknown>[]>(response);
       return Array.isArray(data) ? data.map(normalizeGroup) : [];
     } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      }
+      if (err instanceof ApiError) throw err;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_GROUPS;
@@ -314,13 +417,11 @@ export const api = {
   // GET /api/v1/faculty
   async getFaculty(): Promise<Faculty[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/faculty`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/faculty`, { headers: getAuthHeaders() });
       const data = await handleApiResponse<Record<string, unknown>[]>(response);
       return Array.isArray(data) ? data.map(normalizeFaculty) : [];
     } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      }
+      if (err instanceof ApiError) throw err;
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return MOCK_FACULTY.map((item) => normalizeFaculty(item as unknown as Record<string, unknown>));

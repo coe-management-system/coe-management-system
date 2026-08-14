@@ -53,6 +53,22 @@ class ImportJob(Base):
         ForeignKey("users.id"),
         nullable=True,
     )
+    
+    file_path: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    file_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+
+    validation_result: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

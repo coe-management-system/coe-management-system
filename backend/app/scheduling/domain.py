@@ -24,6 +24,7 @@ class SchedulingEvent:
     start_time: str
     end_time: str
     priority: int
+    group_id: int | None = None
 
     @classmethod
     def from_timetable_data(
@@ -38,6 +39,7 @@ class SchedulingEvent:
         start_time: time,
         end_time: time,
         priority: int,
+        group_id: int | None = None,
     ) -> "SchedulingEvent":
         """
         Convert timetable model data into a scheduling event.
@@ -56,6 +58,7 @@ class SchedulingEvent:
             start_time=start_time.strftime("%H:%M"),
             end_time=end_time.strftime("%H:%M"),
             priority=priority,
+            group_id=group_id,
         )
 
     def to_dict(self) -> dict:
@@ -74,4 +77,5 @@ class SchedulingEvent:
             "start_time": self.start_time,
             "end_time": self.end_time,
             "priority": self.priority,
+            "group_id": self.group_id,
         }
