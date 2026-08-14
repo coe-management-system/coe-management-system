@@ -16,14 +16,12 @@ from app.schemas.coe import (
 )
 from app.services.coe_service import CoEService
 
-
 router = APIRouter(
     prefix="/coe",
     tags=["CoE"],
 )
 
 faculty_required = require_role("faculty")
-
 
 @router.post(
     "",
@@ -41,7 +39,6 @@ def create_coe(
         name=coe_data.name,
         status=coe_data.status,
     )
-
 
 @router.get(
     "",
@@ -80,9 +77,6 @@ def create_coe_lab(
             detail=str(exc),
         )
 
-
-
-
 @router.get(
     "/labs",
     response_model=list[CoELabResponse],
@@ -95,7 +89,6 @@ def get_coe_labs(
     service = CoEService(db)
 
     return service.get_labs(coe_id=coe_id)
-
 
 @router.get(
     "/labs/{lab_id}",
@@ -116,7 +109,6 @@ def get_coe_lab(
             detail="CoE lab not found",
         )
     return lab
-
 
 @router.get(
     "/{coe_id}",
