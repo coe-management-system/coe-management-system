@@ -49,18 +49,30 @@ def _validate_workbook_readable(file_path: str) -> None:
         )
 
     sheet = workbook[workbook.sheetnames[0]]
-    has_data = False
-    for row in sheet.iter_rows(max_row=2):
+    has_header = False
+    for row in sheet.iter_rows(min_row=1, max_row=1):
         if any(cell.value not in (None, "") for cell in row):
-            has_data = True
+            has_header = True
+            break
+
+    has_data_row = False
+    for row in sheet.iter_rows(min_row=2, max_row=2):
+        if any(cell.value not in (None, "") for cell in row):
+            has_data_row = True
             break
 
     workbook.close()
 
-    if not has_data:
+    if not has_header:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The uploaded workbook appears to be empty (no header or data rows found)",
+        )
+
+    if not has_data_row:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded workbook contains headers but no data rows",
         )
 
 
