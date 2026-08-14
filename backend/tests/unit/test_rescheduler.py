@@ -1,10 +1,7 @@
 import unittest
 
-<<<<<<< HEAD
-from  app.scheduling.rescheduler import find_available_slots
-=======
 from app.scheduling.rescheduler import find_available_slots
->>>>>>> origin/develop
+
 
 class TestRescheduler(unittest.TestCase):
 
