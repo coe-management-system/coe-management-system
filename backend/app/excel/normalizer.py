@@ -2,7 +2,7 @@
 Normalization rules applied to Excel data before validation:
 - All fields: leading/trailing whitespace stripped
 - email: converted to lowercase
-- roll_no: converted to uppercase
+- student_id: converted to uppercase
 No other transformations are applied — data is not silently altered beyond these documented rules.
 """ 
 def normalize_value(field: str, value: str) -> str:
