@@ -43,9 +43,13 @@ class ImportService:
     def create_import(db: Session, file_path: str, filename: str, created_by: int) -> ImportJob:
         """
         Registers a new import job and computes its file hash.
-        Does NOT process the workbook yet — that happens in validate_import.
+        Does NOT process the workbook yet - that happens in validate_import.
         """
         file_hash = ImportService.compute_file_hash(file_path)
+
+        existing_import = db.scalar(
+            select(ImportJob).where(ImportJob.file_hash == file_hash)
+        )
 
         import_job = ImportJob(
             filename=filename,
@@ -61,6 +65,10 @@ class ImportService:
         db.add(import_job)
         db.commit()
         db.refresh(import_job)
+
+        import_job._is_repeat_upload = existing_import is not None
+        import_job._original_import_id = existing_import.id if existing_import else None
+
         return import_job
 
     @staticmethod
@@ -183,7 +191,6 @@ class ImportService:
                     "existing_student_id": existing_student.id if existing_student else None,
                 })
 
-            # Duplicate-in-file detection (only applies among currently-VALID rows)
             duplicate_check_input = [
                 {"roll_no": r.get("roll_no"), "_row": r["row"]}
                 for r in resolved_records if r["category"] == "VALID"
