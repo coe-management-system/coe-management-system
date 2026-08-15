@@ -42,3 +42,18 @@ class WhatIfRequest(BaseModel):
     changes: dict | None = None
     capacities: dict[int, float] | None = None
     hard_capacities: dict[int, float] | None = None
+
+
+class OptimizeRequest(BaseModel):
+    mode: Literal[
+        "BALANCED",
+        "CONFLICT_MINIMIZATION",
+        "WORKLOAD_BALANCING",
+    ] = "BALANCED"
+    dates: list[date | str] | None = None
+    day_start: str = "08:00"
+    day_end: str = "18:00"
+    slot_minutes: int = 60
+    max_moves: int = 50
+    capacities: dict[int, float] | None = None
+    hard_capacities: dict[int, float] | None = None

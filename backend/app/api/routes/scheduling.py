@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.models.user import User
-from app.schemas.scheduling import RescheduleRequest, WhatIfRequest
+from app.schemas.scheduling import (
+    OptimizeRequest,
+    RescheduleRequest,
+    WhatIfRequest,
+)
+from app.scheduling.optimizer import OptimizationConfig
 from app.scheduling.service import SchedulingService
 
 
@@ -90,4 +95,36 @@ def post_what_if(
         scenario,
         capacities=payload.capacities,
         hard_capacities=payload.hard_capacities,
+    )
+
+
+@router.post("/optimize")
+def post_optimize(
+    payload: OptimizeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    """
+    Optimize the official timetable on an isolated scenario.
+
+    Produces a proposed schedule only. It never modifies or publishes
+    the official timetable. The response contains the optimization
+    status, the proposed schedule, the before/after comparison, and the
+    objective breakdown.
+    """
+    service = SchedulingService.from_db(db)
+
+    config = OptimizationConfig(
+        dates=payload.dates,
+        day_start=payload.day_start,
+        day_end=payload.day_end,
+        slot_minutes=payload.slot_minutes,
+        mode=payload.mode,
+        max_moves=payload.max_moves,
+    )
+
+    return service.optimize(
+        capacities=payload.capacities,
+        hard_capacities=payload.hard_capacities,
+        config=config,
     )

@@ -248,3 +248,86 @@ def test_no_feasible_slot_scenario():
     assert data["status"] == "NO_FEASIBLE_SLOT"
     assert "reasons" in data
     assert data["reasons"]
+
+
+def test_optimize_requires_token():
+    unauthenticated()
+    response = client.post("/api/v1/scheduling/optimize", json={})
+
+    assert response.status_code == 401
+
+
+def test_optimize_forbidden_for_wrong_role():
+    as_student()
+    response = client.post("/api/v1/scheduling/optimize", json={})
+
+    assert response.status_code == 403
+
+
+def test_optimize_allowed_for_faculty():
+    as_faculty()
+    response = client.post("/api/v1/scheduling/optimize", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] in ("OPTIMIZED", "ALREADY_OPTIMAL")
+    assert data["conflicts_before"] == 1
+    assert data["conflicts_after"] == 0
+    assert "proposed_schedule" in data
+    assert "comparison" in data
+    assert "objective_breakdown" in data
+    assert "recommended_changes" in data
+
+
+def test_optimize_invalid_mode_rejected():
+    as_faculty()
+    response = client.post(
+        "/api/v1/scheduling/optimize",
+        json={"mode": "UNKNOWN_MODE"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_optimize_invalid_request_rejected():
+    as_faculty()
+    response = client.post(
+        "/api/v1/scheduling/optimize",
+        json={"slot_minutes": "not-a-number"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_optimize_does_not_modify_database():
+    as_faculty()
+    response = client.post("/api/v1/scheduling/optimize", json={})
+
+    assert response.status_code == 200
+    assert response.json()["conflicts_after"] == 0
+
+    check = Session(engine)
+    rows = check.query(TimetableEvent).all()
+    assert len(rows) == 2
+    assert rows[0].start_time == time(10, 0)
+    assert rows[1].start_time == time(10, 30)
+    check.close()
+
+
+def test_optimize_no_feasible_scenario():
+    as_faculty()
+    response = client.post(
+        "/api/v1/scheduling/optimize",
+        json={
+            "dates": ["2026-08-15"],
+            "day_start": "10:30",
+            "day_end": "10:30",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "NO_FEASIBLE_SCHEDULE"
+    assert data["conflicts_before"] == 1
+    assert data["conflicts_after"] == 1
+    assert "rejected_candidates" in data

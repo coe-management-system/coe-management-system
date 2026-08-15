@@ -10,9 +10,13 @@ loaded from the application's real database models through
 :meth:`SchedulingService.from_db`.
 """
 
+from sqlalchemy import select
+
 from .conflict_detector import detect_conflicts, detect_conflicts_structured
+from .comparison import compare_schedules
 from .domain import SchedulingEvent
 from .models_timetable import load_timetable_events
+from .optimizer import BaselineOptimizer, OptimizationConfig
 from .recommendation import recommend_reschedule as _recommend_reschedule
 from .what_if_simulator import simulate_scenario
 from .workload_optimizer import (
@@ -67,8 +71,9 @@ class SchedulingService:
         Analyze the current timetable for scheduling conflicts.
 
         Returns:
-            List of structured conflicts.
+            List of structured conflicts (Day 1/2 format).
         """
+
         event_data = [event.to_dict() for event in self.events]
 
         return detect_conflicts(event_data)
@@ -102,6 +107,7 @@ class SchedulingService:
         Returns:
             Faculty workload information.
         """
+
         event_data = [event.to_dict() for event in self.events]
 
         return calculate_faculty_workload(
@@ -159,12 +165,7 @@ class SchedulingService:
             preferred_time=preferred_time,
         )
 
-    def run_what_if(
-        self,
-        scenario,
-        capacities=None,
-        hard_capacities=None,
-    ):
+    def run_what_if(self, scenario, capacities=None, hard_capacities=None):
         """
         Evaluate a what-if scenario without modifying the timetable.
 
@@ -184,3 +185,51 @@ class SchedulingService:
             capacities=capacities,
             hard_capacities=hard_capacities,
         )
+
+    def optimize(
+        self,
+        capacities=None,
+        hard_capacities=None,
+        config=None,
+    ):
+        """
+        Run schedule optimization on an isolated scenario.
+
+        The official timetable is never modified. The optimizer builds a
+        proposed schedule and returns a structured optimization result.
+
+        Args:
+            capacities: Optional mapping of faculty_id to preferred max
+                hours used by the workload constraint.
+            hard_capacities: Optional absolute workload capacities.
+            config: Optional OptimizationConfig describing search
+                boundaries and the objective mode.
+
+        Returns:
+            Optimization result dictionary. See optimizer module.
+        """
+        event_data = [event.to_dict() for event in self.events]
+
+        optimizer = BaselineOptimizer(
+            capacities=capacities,
+            hard_capacities=hard_capacities,
+            config=config,
+        )
+
+        result = optimizer.optimize(
+            event_data,
+            capacities=capacities,
+            hard_capacities=hard_capacities,
+            config=config,
+        )
+
+        result_dict = result.to_dict()
+        result_dict["comparison"] = compare_schedules(
+            event_data,
+            result_dict["proposed_schedule"],
+            capacities=capacities,
+            mode=(config.mode if config else "BALANCED"),
+            hard_capacities=hard_capacities,
+        )
+
+        return result_dict
