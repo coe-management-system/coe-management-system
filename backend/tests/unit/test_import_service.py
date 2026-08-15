@@ -260,3 +260,111 @@ def test_commit_import_rolls_back_on_failure():
 
     db.rollback.assert_called_once()
     assert job.status == ImportStatus.FAILED
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_summary_counts_are_internally_consistent(mock_read_excel):
+    db = create_db()
+    db.scalar.side_effect = [
+        create_department(), create_batch(), create_group(), None,  # row 1: VALID
+        None,  # row 2: unknown department -> REFERENCE_ERROR
+    ]
+
+    df = make_df(
+        [
+            ["CSE101", "Rahul Kumar", "rahul@example.com", "CSE", "2026", "4A"],
+            ["CSE102", "Priya Singh", "not-an-email", "XX", "2026", "4A"],
+        ],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+    summary = result["summary"]
+
+    total_from_categories = (
+        summary["valid"] + summary["invalid"] + summary["reference_errors"]
+        + summary["existing"] + summary["duplicates"]
+    )
+    assert total_from_categories == summary["total_rows"]
+    assert summary["ready_to_commit"] == summary["valid"]
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_department_import_summary_counts_are_internally_consistent(mock_read_excel):
+    db = create_db()
+    db.scalar.side_effect = [None]  # no existing department for the one valid row
+
+    df = make_df(
+        [["CSE", "Computer Science"]],
+        ["code", "name"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_department_import(db, job)
+    summary = result["summary"]
+
+    total_from_categories = (
+        summary["valid"] + summary["invalid"] + summary["reference_errors"]
+        + summary["existing"] + summary["duplicates"]
+    )
+    assert total_from_categories == summary["total_rows"]
+    assert summary["ready_to_commit"] == summary["valid"]
+
+
+@patch("app.services.import_service.read_excel")
+def test_repeated_commit_on_committed_job_is_rejected(mock_read_excel):
+    validation_payload = {
+        "records": [
+            {"roll_no": "CSE101", "name": "Rahul", "email": "rahul@example.com",
+             "category": "VALID", "resolved_department_id": 1, "resolved_batch_id": 1, "resolved_group_id": 1},
+        ],
+    }
+    db = create_db()
+    job = make_import_job(status=ImportStatus.COMMITTED, validation_result=json.dumps(validation_payload))
+
+    with pytest.raises(ValueError, match="Cannot commit import in status .committed."):
+        ImportService.commit_import(db, job)
+
+
+def test_concurrent_commit_second_caller_rejected_after_first_succeeds():
+    """
+    Simulates two callers holding references to the same PREVIEW_READY job.
+    The first commit succeeds and flips status to COMMITTED; the second
+    commit attempt on the same (now-committed) job object must be rejected
+    by the status guard rather than double-inserting records.
+
+    Note: this proves the in-process status-guard protection. It does not
+    exercise true multi-connection/multi-process database-level concurrency
+    (e.g. a race via separate sessions with no row lock), which would need
+    a live Postgres instance and is a documented follow-up, not covered here.
+    """
+    validation_payload = {
+        "records": [
+            {"roll_no": "CSE101", "name": "Rahul", "email": "rahul@example.com",
+             "category": "VALID", "resolved_department_id": 1, "resolved_batch_id": 1, "resolved_group_id": 1},
+        ],
+    }
+    db = create_db()
+    job = make_import_job(status=ImportStatus.PREVIEW_READY, validation_result=json.dumps(validation_payload))
+
+    result_a = ImportService.commit_import(db, job)
+    assert result_a["status"] == ImportStatus.COMMITTED
+    assert job.status == ImportStatus.COMMITTED
+
+    with pytest.raises(ValueError, match="Cannot commit import in status .committed."):
+        ImportService.commit_import(db, job)
+
+
+def test_no_response_schema_exposes_file_path():
+    """
+    Security regression guard: ensure no import response schema ever
+    exposes the server-side file_path, only the safe file_hash digest.
+    """
+    from app.schemas import import_schema
+    import inspect
+
+    source = inspect.getsource(import_schema)
+    assert "file_path" not in source

@@ -38,6 +38,8 @@ class ValidateImportResponse(BaseModel):
     status: str
     mapping: dict
     unmapped_columns: list[str]
+    ambiguous_columns: list[dict] = []
+    column_status: list[dict] = []
     summary: ImportSummary
     records: list[dict]
 
