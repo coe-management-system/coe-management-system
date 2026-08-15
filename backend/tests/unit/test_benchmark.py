@@ -1,6 +1,12 @@
 import unittest
 
-from app.scheduling.benchmark import build_benchmark_scenario, run_benchmark
+from app.scheduling.benchmark import (
+    build_benchmark_scenario,
+    build_optimization_scenario,
+    run_benchmark,
+    run_optimization_benchmark,
+    run_performance_benchmark,
+)
 
 
 class TestBenchmark(unittest.TestCase):
@@ -54,6 +60,48 @@ class TestBenchmark(unittest.TestCase):
             result["initial_conflicts"],
             result["final_conflicts"],
         )
+
+    def test_optimization_scenario_is_reproducible(self):
+        first = build_optimization_scenario()
+        second = build_optimization_scenario()
+
+        self.assertEqual(first, second)
+
+    def test_optimization_benchmark_records_metrics(self):
+        result = run_optimization_benchmark()
+
+        self.assertIn("scenario", result)
+        self.assertIn("status", result)
+        self.assertIn("conflicts", result)
+        self.assertIn("workload", result)
+        self.assertIn("objective_score", result)
+        self.assertIn("moved_events", result)
+        self.assertIn("execution_time_seconds", result)
+
+    def test_optimization_benchmark_resolves_conflicts(self):
+        result = run_optimization_benchmark()
+
+        self.assertEqual(result["conflicts"]["before"], 2)
+        self.assertEqual(result["conflicts"]["after"], 0)
+
+    def test_optimization_benchmark_is_deterministic(self):
+        first = run_optimization_benchmark()
+        second = run_optimization_benchmark()
+
+        self.assertEqual(first["status"], second["status"])
+        self.assertEqual(
+            first["objective_score"],
+            second["objective_score"],
+        )
+        self.assertEqual(first["moved_events"], second["moved_events"])
+
+    def test_performance_benchmark_records_sizes(self):
+        results = run_performance_benchmark(sizes=(10,))
+
+        self.assertIn(10, results)
+        self.assertIn("input_size", results[10])
+        self.assertIn("execution_time_seconds", results[10])
+        self.assertIn("result_quality", results[10])
 
 
 if __name__ == "__main__":

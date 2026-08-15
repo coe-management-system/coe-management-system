@@ -4,7 +4,6 @@ Application service for scheduling operations.
 The SchedulingService coordinates the scheduling engine and exposes
 business-level scheduling operations without exposing implementation
 details to API routes or other application layers.
-<<<<<<< HEAD
 
 The service operates on SchedulingEvent objects. Timetable data can be
 loaded from the application's real database models through
@@ -14,21 +13,16 @@ loaded from the application's real database models through
 from sqlalchemy import select
 
 from .conflict_detector import detect_conflicts, detect_conflicts_structured
+from .comparison import compare_schedules
 from .domain import SchedulingEvent
 from .models_timetable import load_timetable_events
+from .optimizer import BaselineOptimizer, OptimizationConfig
 from .recommendation import recommend_reschedule as _recommend_reschedule
 from .what_if_simulator import simulate_scenario
 from .workload_optimizer import (
     calculate_faculty_workload,
     calculate_workload_report,
 )
-=======
-"""
-
-from .conflict_detector import detect_conflicts
-from .domain import SchedulingEvent
-from .workload_optimizer import calculate_faculty_workload
->>>>>>> origin/develop
 
 
 class SchedulingService:
@@ -48,7 +42,6 @@ class SchedulingService:
         """
         self.events = list(events or [])
 
-<<<<<<< HEAD
     @classmethod
     def from_db(cls, db):
         """
@@ -73,25 +66,18 @@ class SchedulingService:
         """
         return [event.to_dict() for event in self.events]
 
-=======
->>>>>>> origin/develop
     def analyze_conflicts(self):
         """
         Analyze the current timetable for scheduling conflicts.
 
         Returns:
-<<<<<<< HEAD
             List of structured conflicts (Day 1/2 format).
-=======
-            List of structured conflicts.
->>>>>>> origin/develop
         """
 
         event_data = [event.to_dict() for event in self.events]
 
         return detect_conflicts(event_data)
 
-<<<<<<< HEAD
     def analyze_conflicts_structured(
         self,
         capacities=None,
@@ -111,8 +97,6 @@ class SchedulingService:
             hard_capacities=hard_capacities,
         )
 
-=======
->>>>>>> origin/develop
     def get_faculty_workload(self, faculty_id):
         """
         Calculate workload for a faculty member.
@@ -129,7 +113,6 @@ class SchedulingService:
         return calculate_faculty_workload(
             event_data,
             faculty_id,
-<<<<<<< HEAD
         )
 
     def get_workload_report(self, capacities=None):
@@ -201,6 +184,52 @@ class SchedulingService:
             scenario,
             capacities=capacities,
             hard_capacities=hard_capacities,
-=======
->>>>>>> origin/develop
         )
+
+    def optimize(
+        self,
+        capacities=None,
+        hard_capacities=None,
+        config=None,
+    ):
+        """
+        Run schedule optimization on an isolated scenario.
+
+        The official timetable is never modified. The optimizer builds a
+        proposed schedule and returns a structured optimization result.
+
+        Args:
+            capacities: Optional mapping of faculty_id to preferred max
+                hours used by the workload constraint.
+            hard_capacities: Optional absolute workload capacities.
+            config: Optional OptimizationConfig describing search
+                boundaries and the objective mode.
+
+        Returns:
+            Optimization result dictionary. See optimizer module.
+        """
+        event_data = [event.to_dict() for event in self.events]
+
+        optimizer = BaselineOptimizer(
+            capacities=capacities,
+            hard_capacities=hard_capacities,
+            config=config,
+        )
+
+        result = optimizer.optimize(
+            event_data,
+            capacities=capacities,
+            hard_capacities=hard_capacities,
+            config=config,
+        )
+
+        result_dict = result.to_dict()
+        result_dict["comparison"] = compare_schedules(
+            event_data,
+            result_dict["proposed_schedule"],
+            capacities=capacities,
+            mode=(config.mode if config else "BALANCED"),
+            hard_capacities=hard_capacities,
+        )
+
+        return result_dict

@@ -14,7 +14,6 @@ The implementation currently supports:
 5. Candidate slot evaluation for rescheduling
 6. What-if timetable simulation
 7. Scheduling service coordination
-<<<<<<< HEAD
 8. Hard/soft constraint evaluation with structured violations
 9. Constraint-aware candidate slot generation
 10. Candidate scoring and ranking
@@ -23,8 +22,6 @@ The implementation currently supports:
 13. What-if scenario simulation
 14. R&D benchmark for the scheduling engine
 15. REST API and database integration
-=======
->>>>>>> origin/develop
 
 The implementation is intentionally lightweight and operates on timetable
 event data without directly depending on the database layer.
@@ -43,24 +40,20 @@ app/scheduling/
 │
 ├── domain.py
 ├── constraints.py
-<<<<<<< HEAD
 ├── constraint_engine.py
-=======
->>>>>>> origin/develop
 ├── priorities.py
 ├── conflict_detector.py
 ├── workload_optimizer.py
 ├── rescheduler.py
-<<<<<<< HEAD
 ├── candidate_generator.py
 ├── scoring.py
 ├── recommendation.py
 ├── what_if_simulator.py
+├── objective.py
+├── optimizer.py
+├── comparison.py
 ├── benchmark.py
 ├── models_timetable.py
-=======
-├── what_if_simulator.py
->>>>>>> origin/develop
 ├── service.py
 └── scheduler.py
 ```
@@ -71,7 +64,6 @@ app/scheduling/
   conversion between timetable data and scheduling data.
 - `constraints.py` — Validates required scheduling fields, time ranges,
   priorities, and candidate slots.
-<<<<<<< HEAD
 - `constraint_engine.py` — Evaluates hard and soft scheduling constraints
   and returns structured violation information. This is the core
   constraint-aware engine introduced in the Day 3 work.
@@ -96,21 +88,19 @@ app/scheduling/
   timetable without modifying the original data. Day 3 adds
   `simulate_scenario()` for room/faculty/batch unavailability and event
   changes.
+- `objective.py` — Defines the documented schedule objective (Day 4):
+  conflict penalty, workload overload/balance, moved-events, priority,
+  and room-utilization penalties, plus workload summaries.
+- `optimizer.py` — Introduces the `SchedulingOptimizer` interface and the
+  deterministic `BaselineOptimizer` (Day 4). Returns a structured
+  `OptimizationResult` with changes, reasons, and a proposed schedule.
+- `comparison.py` — Compares the current and proposed schedules (Day 4):
+  unchanged/moved/added/removed events, conflicts, workload, objective.
 - `benchmark.py` — Builds reproducible benchmark scenarios and measures
-  scheduling-engine metrics.
+  scheduling-engine metrics, including the Day 4 optimization and
+  performance benchmarks.
 - `models_timetable.py` — Bridges the SQLAlchemy `TimetableEvent` table to
   the domain `SchedulingEvent` representation.
-=======
-- `priorities.py` — Handles scheduling priority classification.
-- `conflict_detector.py` — Detects faculty, batch, and room conflicts
-  between overlapping timetable events.
-- `workload_optimizer.py` — Calculates event duration and total allocated
-  workload for a faculty member.
-- `rescheduler.py` — Evaluates candidate timetable slots and reports
-  feasibility and rejection reasons.
-- `what_if_simulator.py` — Simulates proposed event changes on a copied
-  timetable without modifying the original data.
->>>>>>> origin/develop
 - `service.py` — Provides the application-level `SchedulingService` that
   coordinates scheduling operations.
 - `scheduler.py` — Contains the scheduling engine entry-point logic.
@@ -135,7 +125,6 @@ group_id (optional)
 ```
 
 The scheduling domain uses `SchedulingEvent` as a lightweight,
-<<<<<<< HEAD
 database-independent representation of this structure. The Day 3 work
 adds an optional `group_id` field so that group-based constraints can be
 evaluated.
@@ -180,13 +169,6 @@ against a proposed event.
 ---
 
 ## 5. Conflict Detection
-=======
-database-independent representation of this structure.
-
----
-
-## 4. Conflict Detection
->>>>>>> origin/develop
 
 The conflict detector checks overlapping timetable events for shared
 resources.
@@ -223,11 +205,7 @@ the conflicting event IDs and conflict type.
 
 ---
 
-<<<<<<< HEAD
 ## 6. Scheduling Constraints
-=======
-## 5. Scheduling Constraints
->>>>>>> origin/develop
 
 The scheduling constraint layer validates timetable and candidate-slot
 data before scheduling operations.
@@ -245,11 +223,7 @@ schedule data.
 
 ---
 
-<<<<<<< HEAD
 ## 7. Priority Classification
-=======
-## 6. Priority Classification
->>>>>>> origin/develop
 
 The scheduling prototype supports priority classification for timetable
 events.
@@ -268,11 +242,7 @@ rescheduling so that the scheduling engine can use it independently.
 
 ---
 
-<<<<<<< HEAD
 ## 8. Faculty Workload Calculation and Reporting
-=======
-## 7. Faculty Workload Calculation
->>>>>>> origin/develop
 
 The workload component calculates allocated teaching hours from timetable
 events.
@@ -310,7 +280,6 @@ The workload calculation currently supports:
 - Total allocated hours
 - Invalid time-range validation
 
-<<<<<<< HEAD
 **Day 3 additions:**
 
 - Workload impact analysis for candidate slots (`calculate_workload_impact()`)
@@ -322,33 +291,19 @@ The workload calculation currently supports:
   - Overloaded status
   - Scheduling pressure (events per day)
 
-=======
->>>>>>> origin/develop
 Events belonging to other faculty members are ignored.
 
 The current implementation does not yet calculate:
 
 - Daily workload
 - Weekly workload
-<<<<<<< HEAD
-=======
-- Maximum faculty capacity
-- Remaining capacity
-- Overloaded status
-- Workload balancing
-- Automatic workload optimization
->>>>>>> origin/develop
 - Teaching/training/administrative workload categories
 
 These remain future extensions.
 
 ---
 
-<<<<<<< HEAD
 ## 9. Candidate Slot Evaluation, Scoring, and Rescheduling
-=======
-## 8. Candidate Slot Evaluation and Rescheduling
->>>>>>> origin/develop
 
 The rescheduling component evaluates proposed candidate slots without
 automatically changing the timetable.
@@ -358,15 +313,10 @@ For each candidate slot, the engine checks whether the requested:
 - Faculty
 - Batch
 - Room
-<<<<<<< HEAD
 - Group (Day 3)
 
 are available during the proposed date and time, and whether the slot
 violates workload constraints.
-=======
-
-are available during the proposed date and time.
->>>>>>> origin/develop
 
 Each candidate is classified as either:
 
@@ -382,10 +332,7 @@ Faculty 10 is unavailable due to event 1.
 Batch 201 is unavailable due to event 1.
 Room 101 is unavailable due to event 1.
 Candidate slot has an invalid time range.
-<<<<<<< HEAD
 Workload constraint: Faculty 10 exceeds capacity.
-=======
->>>>>>> origin/develop
 ```
 
 The existing `find_available_slots()` function is retained for backward
@@ -394,7 +341,6 @@ compatibility and returns only feasible slots.
 The `evaluate_candidate_slots()` function provides the more informative
 evaluation result containing status and rejection reasons.
 
-<<<<<<< HEAD
 **Day 3 additions:**
 
 - `candidate_generator.py` — generates candidate slots for a given date
@@ -414,18 +360,12 @@ evaluation result containing status and rejection reasons.
   6. Return top recommendation with explanation, or `NO_FEASIBLE_SLOT`
      with aggregated rejection reasons
 
-=======
->>>>>>> origin/develop
 The current implementation does not automatically move events or perform
 optimization.
 
 ---
 
-<<<<<<< HEAD
 ## 10. What-If Timetable Simulation and Scenario Analysis
-=======
-## 9. What-If Timetable Simulation
->>>>>>> origin/develop
 
 The what-if simulator allows proposed changes to a timetable event to be
 tested without modifying the original timetable.
@@ -463,7 +403,6 @@ The original timetable data remains unchanged.
 If the requested event does not exist, the simulator raises a
 `ValueError`.
 
-<<<<<<< HEAD
 **Day 3 additions — Scenario simulation (`simulate_scenario()`):**
 
 Supports four scenario types:
@@ -489,11 +428,6 @@ The result includes:
 ---
 
 ## 11. Scheduling Service and Database Integration
-=======
----
-
-## 10. Scheduling Service
->>>>>>> origin/develop
 
 `service.py` provides the application-level `SchedulingService`.
 
@@ -506,25 +440,17 @@ Current service operations include:
 
 ```text
 SchedulingService.analyze_conflicts()
-<<<<<<< HEAD
 SchedulingService.analyze_conflicts_structured()
 ```
 
 Converts domain events into the scheduling data structure and delegates
 conflict detection to `conflict_detector.py`. The structured version
 returns `ConstraintViolation` objects.
-=======
-```
-
-Converts domain events into the scheduling data structure and delegates
-conflict detection to `conflict_detector.py`.
->>>>>>> origin/develop
 
 ### Faculty Workload
 
 ```text
 SchedulingService.get_faculty_workload(faculty_id)
-<<<<<<< HEAD
 SchedulingService.get_workload_report(capacities)
 ```
 
@@ -551,6 +477,16 @@ SchedulingService.run_what_if(scenario)
 Runs a scenario simulation without modifying the timetable by delegating
 to `what_if_simulator.py`.
 
+### Optimization
+
+```text
+SchedulingService.optimize(capacities, hard_capacities, config)
+```
+
+Runs the deterministic baseline optimizer on an isolated scenario and
+returns a structured `OptimizationResult`. The official timetable is
+never modified and no publishing is performed.
+
 ### Database Integration
 
 ```text
@@ -561,23 +497,13 @@ Constructs a `SchedulingService` instance by loading timetable events
 from the database via `models_timetable.load_timetable_events(db)`.
 This bridges the SQLAlchemy `TimetableEvent` table to the domain
 `SchedulingEvent` representation.
-=======
-```
-
-Calculates the allocated workload for a selected faculty member by
-delegating to `workload_optimizer.py`.
->>>>>>> origin/develop
 
 The service can operate with an empty timetable and returns an empty
 conflict list and zero workload when no events are present.
 
 ---
 
-<<<<<<< HEAD
 ## 12. Testing
-=======
-## 11. Testing
->>>>>>> origin/develop
 
 The scheduling functionality is covered by unit tests under:
 
@@ -588,7 +514,6 @@ backend/tests/unit/
 Current test areas include:
 
 ```text
-<<<<<<< HEAD
 test_candidate_generation.py        # Day 2 candidate evaluation
 test_candidate_generator.py         # Day 3 constraint-aware candidates
 test_conflict_detector.py
@@ -604,19 +529,23 @@ test_service_day3.py                # Day 3 extended service
 test_what_if_simulator.py
 test_what_if_scenarios.py           # Day 3 scenario simulation
 test_workload_optimizer.py
-test_benchmark.py                   # Day 3 R&D benchmark
+test_benchmark.py                   # Day 3 R&D benchmark + Day 4 optimization/performance
 test_database_integration.py        # Day 3 DB integration (sqlite in-memory)
+test_optimizer.py                   # Day 4 objective evaluation + baseline optimizer + no-feasible
+test_comparison.py                  # Day 4 schedule comparison
+test_service_day4.py                # Day 4 service-level optimization
+test_end_to_end_optimization.py     # Day 4 end-to-end optimization scenario
 ```
 
 Integration/API tests under:
 
 ```text
 backend/tests/integration/
-test_scheduling_api.py              # Day 3 REST API + RBAC
+test_scheduling_api.py              # Day 3 REST API + RBAC + Day 4 /optimize
 test_auth_api.py                    # pre-existing auth integration
 ```
 
-The current unit test suite contains **120+ tests**, covering:
+The current unit test suite covers:
 
 - Conflict detection (original + structured)
 - Constraint validation (original constraints + Day 3 engine)
@@ -628,47 +557,24 @@ The current unit test suite contains **120+ tests**, covering:
 - Scheduling service behavior (original + Day 3 extensions)
 - What-if simulation (original + Day 3 scenarios)
 - Faculty workload calculation + impact + report
-- R&D benchmark
+- R&D benchmark + optimization benchmark + performance baseline
 - Database integration (in-memory sqlite)
+- Optimization objective evaluation (conflicts, workload, priority, room)
+- Deterministic baseline optimizer (feasible/infeasible/best-score)
+- No-feasible-schedule handling with rejection diagnostics
+- Schedule comparison (unchanged/moved/added/removed, conflicts, workload)
+- Optimization isolation (official timetable never modified)
+- End-to-end optimization scenario
 - REST API endpoints + RBAC (401/403/200)
-=======
-test_candidate_generation.py
-test_conflict_detector.py
-test_constraints.py
-test_domain.py
-test_priorities.py
-test_rescheduler.py
-test_service.py
-test_what_if_simulator.py
-test_workload_optimizer.py
-```
-
-The current unit test suite contains **40 tests**, covering:
-
-- Conflict detection
-- Constraint validation
-- Domain conversion
-- Priority classification
-- Candidate slot evaluation
-- Rescheduling availability
-- Scheduling service behavior
-- What-if simulation
-- Faculty workload calculation
->>>>>>> origin/develop
 
 Latest test execution:
 
 ```text
-<<<<<<< HEAD
-Ran 143 tests in ~5s
-=======
-Ran 40 tests in 0.004s
->>>>>>> origin/develop
+Ran 230 tests in ~4s
 
 OK
 ```
 
-<<<<<<< HEAD
 This confirms that the current scheduling prototype passes its full
 test suite.
 
@@ -689,86 +595,233 @@ Implemented:
 - What-if timetable simulation (original + scenario analysis)
 - Scheduling service coordination (with database integration)
 - REST API endpoints (timetable, workload, scheduling conflicts,
-  reschedule-recommendation, what-if)
+  reschedule-recommendation, what-if, optimize)
 - Role-based access control for scheduling APIs
-- R&D benchmark infrastructure
+- R&D benchmark infrastructure + optimization/performance benchmarks
+- Optimization abstraction (`SchedulingOptimizer`) + deterministic
+  `BaselineOptimizer` with documented objective and structured result
+- Schedule comparison (before/after)
 - Unit, integration, and API test coverage
 
 ---
 
-## 14. Not Yet Implemented
-=======
-This confirms that the current scheduling prototype passes its unit-test
-suite.
+## 14. Optimization (Day 4)
+
+Day 4 moves scheduling from "what are the feasible alternatives?"
+(day 3) to "among many feasible alternatives, what is the best overall
+schedule?". It does **not** implement OR-Tools, genetic algorithms, or
+AI scheduling. It establishes a clean optimization abstraction and a
+deterministic baseline optimizer.
+
+### 14.1 Optimization Pipeline
+
+```text
+Current timetable
+        |
+        v
+Scenario (copy of the official timetable)
+        |
+        v
+Constraint engine (hard constraint filtering)
+        |
+        v
+Generate feasible candidates
+        |
+        v
+Objective evaluation
+        |
+        v
+Best feasible schedule
+        |
+        v
+Before/after comparison
+        |
+        v
+Human review -> future publishing
+```
+
+### 14.2 Optimization Abstraction
+
+`optimizer.py` defines the pluggable interface:
+
+```text
+SchedulingOptimizer
+        |
+        +-- BaselineOptimizer       (implemented on Day 4)
+        +-- Future ORToolsOptimizer (not implemented)
+        +-- Future GeneticOptimizer (not implemented)
+```
+
+Future algorithms implement `SchedulingOptimizer.optimize()` and plug in
+without rewriting the API, database, frontend, or authentication layers.
+
+### 14.3 Hard Constraint Filtering
+
+A hard constraint violation is **never** acceptable, regardless of the
+objective score:
+
+```text
+Candidate
+   |
+   v
+Hard constraints
+   |
+   +-- FAIL -> discard (never scored)
+   |
+   +-- PASS -> objective scoring
+```
+
+The optimizer only scores feasible candidates.
+
+### 14.4 Documented Objective Weights
+
+The objective (`objective.py`) uses these documented weights:
+
+| Factor | Weight | Notes |
+|--------|-------:|-------|
+| Hard conflict | 500.0 | Per hard violation. Feasible schedules have zero. |
+| Workload overload | 40.0 | Per overloaded faculty. Matches `scoring.py`. |
+| Workload balance | 5.0 | Per squared-hour deviation from capacity. |
+| Moved events | 25.0 | Per moved event. Matches `scoring.py`. |
+| Priority | 10.0 | Per priority level of a moved event. |
+| Room utilization | 2.0 | Per squared-hour deviation from mean room usage. |
+
+Supported modes: `BALANCED`, `CONFLICT_MINIMIZATION`, and
+`WORKLOAD_BALANCING`. Each mode re-scales the objective weights
+documented in `objective.py`.
+
+### 14.5 Structured Optimization Result
+
+The optimizer returns a rich result instead of a bare schedule:
+
+```text
+OptimizationResult
+    status                 OPTIMIZED | ALREADY_OPTIMAL | NO_FEASIBLE_SCHEDULE
+    original_score
+    optimized_score
+    events_changed
+    conflicts_before
+    conflicts_after
+    workload_before
+    workload_after
+    objective_breakdown    before / after
+    recommended_changes    event, from, to, reasons
+    proposed_schedule      the isolated proposed timetable
+    rejected_candidates    diagnostics when no feasible schedule exists
+    message
+```
+
+The scheduling engine produces structured reasons for every change (no
+LLM required): "no faculty conflict", "no batch conflict", "no room
+conflict", "valid time range", "within workload capacity".
+
+### 14.6 No-Feasible-Schedule Handling
+
+When the search space cannot absorb a conflicting event the optimizer
+returns `NO_FEASIBLE_SCHEDULE` with rejected-candidate diagnostics
+instead of an empty list.
+
+### 14.7 Scenario Isolation and No Automatic Publishing
+
+Optimization always operates on an isolated scenario:
+
+```text
+Official timetable -> copy -> optimize -> proposed schedule
+```
+
+The official timetable is never modified. Optimization produces a
+**proposed** schedule only; publishing is a future workflow. The
+optimization API is a read/scenario operation.
+
+### 14.8 Determinism and Benchmark
+
+Given the same database state, input, and configuration the optimizer
+always returns the same result. The benchmark module records scenario
+size, conflicts/workload/objective before and after, moved events, and
+execution time. A performance baseline measures 10/50/100-event
+timetables.
+
+### 14.9 Optimization API
+
+```text
+POST /api/v1/scheduling/optimize
+```
+
+The request identifies search boundaries (`dates`, `day_start`,
+`day_end`, `slot_minutes`), the objective `mode`, capacities, and
+`max_moves`. The response contains the optimization status, proposed
+schedule, comparison, objective breakdown, and changes. The endpoint
+requires the `faculty` role (401 without a token, 403 for the wrong
+role). No internal algorithm endpoints (e.g. `/run-optimizer`) are
+exposed.
+
+### 14.10 AI Integration Boundary
+
+The optimization output is structured JSON (status, conflicts, moved
+events, changes, objective breakdown) that Member 5's AI tooling can
+consume. Natural-language explanation belongs to the AI layer, not the
+scheduling service.
+
+### 14.11 Rescheduling vs Optimization
+
+Day 3 rescheduling and Day 4 optimization are distinct features:
+
+```text
+Day 3 rescheduling          Day 4 optimization
+-------------------         --------------------
+Single conflict             Multiple conflicts/events
+  |                           |
+  v                           v
+Recommended alternative      Global candidate evaluation
+                              |
+                              v
+                             Optimized schedule
+```
+
+Rescheduling recommends an alternative slot for one event.
+Optimization evaluates candidates globally and returns the best
+feasible overall schedule. Optimization is a genuine global objective
+and comparison across candidate schedules, not a renamed rescheduler.
 
 ---
 
-## 12. Current Scope
-
-Implemented:
-
-- Scheduling event domain representation
-- Conflict detection
-- Constraint validation
-- Priority classification
-- Faculty workload calculation
-- Candidate slot evaluation
-- Rescheduling availability checks
-- What-if timetable simulation
-- Scheduling service coordination
-- Unit test coverage for the implemented scheduling functionality
-
----
-
-## 13. Not Yet Implemented
->>>>>>> origin/develop
+## 15. Not Yet Implemented
 
 The current scheduling prototype does not yet provide:
 
 - Automatic timetable generation
-- Automatic event movement
-- Optimization-based timetable generation
-<<<<<<< HEAD
+- Automatic event movement/publishing (optimization produces proposals only)
 - Teaching/training/administrative workload categories
 - Daily/weekly workload aggregation
 - Persistent timetable updates through the scheduling engine
-- Advanced scheduling optimization algorithms (genetic, CSP, etc.)
+- Advanced scheduling optimization algorithms (genetic, CSP, OR-Tools,
+  reinforcement learning, AI scheduling)
+- Optimization-scenario persistence (kept in memory/service-level
+  structures; the HLD/LLD does not require database tables)
+- Calendar integration, faculty preference portal, email notifications,
+  frontend optimization dashboard, advanced ML workload prediction
 
-The following are partially implemented in Day 3 but remain decision-support
-only (no auto-apply):
+The following remain decision-support only (no auto-apply):
 
-- Workload balancing (reported, not auto-optimized)
+- Workload balancing (proposed by the optimizer, not auto-applied)
 - Faculty capacity management (soft/hard constraints enforced on
   candidates, not persisted)
-=======
-- Workload balancing
-- Faculty capacity management
-- Persistent timetable updates through the scheduling engine
-- Advanced scheduling optimization algorithms
->>>>>>> origin/develop
 
 These should be treated as future work rather than as implemented
 features.
 
 ---
 
-<<<<<<< HEAD
-## 15. Current Development Status
+## 16. Current Development Status
 
 The scheduling prototype is currently implemented, unit-tested, and
 integration-tested with a full REST API layer.
-=======
-## 14. Current Development Status
-
-The scheduling prototype is currently implemented and unit-tested.
->>>>>>> origin/develop
 
 The scheduling layer is structured as independent modules so that future
 API integration, database integration, and optimization functionality can
 be added without rewriting the core scheduling logic.
-<<<<<<< HEAD
 
-Day 3 (current) delivered:
+Day 3 delivered:
 
 - Constraint engine with hard/soft violations and structured reporting
 - Constraint-aware candidate generation with all resource constraints
@@ -781,6 +834,18 @@ Day 3 (current) delivered:
 - REST API + RBAC for scheduling operations
 - Full test coverage (unit + integration)
 
-All 143 tests pass (unit + integration + auth).
-=======
->>>>>>> origin/develop
+Day 4 delivered:
+
+- Optimization abstraction (`SchedulingOptimizer`) for future algorithms
+- Deterministic `BaselineOptimizer` with documented objective weights
+- Hard constraints remain absolute (never scored away)
+- Structured `OptimizationResult` with changes and structured reasons
+- Before/after schedule comparison (`comparison.py`)
+- Workload objective, priority preservation, and room-utilization terms
+- `NO_FEASIBLE_SCHEDULE` handling with rejection diagnostics
+- Scenario isolation (official timetable never modified)
+- `POST /scheduling/optimize` API with existing RBAC
+- Optimization and performance benchmarks
+- Full Day 4 test coverage (unit + integration + API)
+
+All 230 tests pass (unit + integration + auth).
