@@ -2,8 +2,8 @@ import pandas as pd
 from pathlib import Path
 
 def get_sheet_names(file_path: str) -> list:
-    xls = pd.ExcelFile(file_path)
-    return xls.sheet_names
+    with pd.ExcelFile(file_path) as xls:
+        return xls.sheet_names
 
 def read_excel(file_path: str, sheet_name: str = None) -> pd.DataFrame:
     if not Path(file_path).exists():
