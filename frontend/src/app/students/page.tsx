@@ -9,7 +9,10 @@ import { StudentTable } from '@/components/students/StudentTable';
 import { CreateStudentModal } from '@/components/students/CreateStudentModal';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { Users, GraduationCap, Building2, UserCheck, UserPlus } from 'lucide-react';
+import { Users, GraduationCap, Building2, UserCheck, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 10;
+
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -24,6 +27,9 @@ export default function StudentsPage() {
   const [department, setDepartment] = useState('All');
   const [batch, setBatch] = useState('All');
   const [group, setGroup] = useState('All');
+
+  // Client-side Pagination State (Backend contract returns complete list)
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -49,16 +55,48 @@ export default function StudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
+  // Reset to Page 1 whenever search query or filters change
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentChange = (dept: string) => {
+    setDepartment(dept);
+    setCurrentPage(1);
+  };
+
+  const handleBatchChange = (b: string) => {
+    setBatch(b);
+    setCurrentPage(1);
+  };
+
+  const handleGroupChange = (g: string) => {
+    setGroup(g);
+    setCurrentPage(1);
+  };
+
   const handleResetFilters = () => {
     setSearchQuery('');
     setDepartment('All');
     setBatch('All');
     setGroup('All');
+    setCurrentPage(1);
   };
 
   const handleStudentCreated = (newStudent: Student) => {
     setStudents((prev) => [newStudent, ...prev]);
+
+    setCurrentPage(1);
   };
+
+  // Client-side pagination calculations
+  const totalStudents = students.length;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalStudents);
+  const paginatedStudents = students.slice(startIndex, endIndex);
+
 
   return (
     <div className="space-y-6">
@@ -77,7 +115,8 @@ export default function StudentsPage() {
             </button>
             <div className="hidden sm:flex items-center space-x-2 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100 text-xs text-indigo-700 font-semibold">
               <Users className="w-4 h-4 text-indigo-600" />
-              <span>{students.length} Enrolled Total</span>
+              <span>{totalStudents} Enrolled Total</span>
+
             </div>
           </div>
         }
@@ -91,7 +130,7 @@ export default function StudentsPage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Total Active Directory</div>
-            <div className="text-xl font-bold text-slate-900">{students.length} Records</div>
+            <div className="text-xl font-bold text-slate-900">{totalStudents} Records</div>
           </div>
         </div>
 
@@ -122,10 +161,10 @@ export default function StudentsPage() {
         department={department}
         batch={batch}
         group={group}
-        onSearchChange={setSearchQuery}
-        onDepartmentChange={setDepartment}
-        onBatchChange={setBatch}
-        onGroupChange={setGroup}
+        onSearchChange={handleSearchChange}
+        onDepartmentChange={handleDepartmentChange}
+        onBatchChange={handleBatchChange}
+        onGroupChange={handleGroupChange}
         onResetFilters={handleResetFilters}
       />
 
@@ -135,9 +174,48 @@ export default function StudentsPage() {
       {/* Error State */}
       {!loading && error && <ErrorState message={error} onRetry={fetchStudents} />}
 
-      {/* Table & Empty State */}
+      {/* Table & Pagination */}
       {!loading && !error && (
-        <StudentTable students={students} />
+        <div className="space-y-4">
+          <StudentTable students={paginatedStudents} />
+
+          {/* Client-side Pagination Toolbar */}
+          {totalStudents > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs text-xs">
+              <div className="text-slate-500 font-medium">
+                Showing <span className="font-bold text-slate-900">{startIndex + 1}</span> to{' '}
+                <span className="font-bold text-slate-900">{endIndex}</span> of{' '}
+                <span className="font-bold text-slate-900">{totalStudents}</span> student records
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <span className="text-slate-600 font-semibold">
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Student Creation Modal */}

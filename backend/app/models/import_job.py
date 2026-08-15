@@ -17,6 +17,12 @@ class ImportJob(Base):
         String(255),
         nullable=False,
     )
+    
+    import_type: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="student",
+    )
 
     status: Mapped[str] = mapped_column(
         String(30),
@@ -51,6 +57,22 @@ class ImportJob(Base):
 
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
+        nullable=True,
+    )
+    
+    file_path: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    file_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+
+    validation_result: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

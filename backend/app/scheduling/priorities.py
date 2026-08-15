@@ -32,7 +32,8 @@ def get_priority_value(priority):
 
     Args:
         priority: Priority name such as low, normal, high, or urgent.
-                  Priority matching is case-insensitive.
+                  Priority matching is case-insensitive. Numeric priority
+                  values from 1 to 4 are returned unchanged.
 
     Returns:
         Integer priority value from 1 to 4.
@@ -45,7 +46,16 @@ def get_priority_value(priority):
         get_priority_value("normal") -> 2
         get_priority_value("high") -> 3
         get_priority_value("urgent") -> 4
+        get_priority_value(3) -> 3
     """
+    if isinstance(priority, int):
+        if priority in PRIORITY_LEVELS.values():
+            return priority
+        raise ValueError(
+            f"Invalid priority {priority}. "
+            f"Expected one of: {', '.join(PRIORITY_LEVELS.keys())}"
+        )
+
     priority = priority.lower()
 
     if priority not in PRIORITY_LEVELS:
