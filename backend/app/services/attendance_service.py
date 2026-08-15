@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.attendance import Attendance
 from app.models.student import Student
-from typing import Any
+from typing import Any, List, Dict
 
 class AttendanceService:
     def __init__(self, db: Session):
@@ -206,6 +206,53 @@ class AttendanceService:
             "eligible_sessions": eligible_sessions,
             "attendance_percentage": percentage,
         }
+
+    def get_student_attendance(
+        self,
+        student_identifier: str,
+    ) -> dict:
+        stmt = select(Student).where(Student.roll_no == student_identifier)
+        if student_identifier.isdigit():
+            stmt = select(Student).where(
+                (Student.roll_no == student_identifier) | (Student.id == int(student_identifier))
+            )
+        student = self.db.scalar(stmt)
+        if not student:
+            raise ValueError(f"Student with identifier '{student_identifier}' not found.")
+
+        subjects = self.db.scalars(
+            select(Attendance.subject_id)
+            .where(Attendance.student_id == student.id)
+            .distinct()
+        ).all()
+
+        subject_summaries = []
+        total_attended = 0
+        total_eligible = 0
+
+        for subj_id in subjects:
+            summary = self.get_summary(student_id=student.id, subject_id=subj_id)
+            subject_summaries.append(summary)
+            total_attended += summary["attended_sessions"]
+            total_eligible += summary["eligible_sessions"]
+
+        overall_percentage = (
+            round((total_attended / total_eligible) * 100, 2)
+            if total_eligible > 0
+            else 0.0
+        )
+
+        return {
+            "student_id": student.id,
+            "roll_no": student.roll_no,
+            "name": student.name,
+            "overall_attendance_percentage": overall_percentage,
+            "total_attended_sessions": total_attended,
+            "total_eligible_sessions": total_eligible,
+            "subjects": subject_summaries,
+        }
+
+
 def get_low_attendance_students_mock() -> list[dict[str, Any]]:
     """
     Backward-compatible mock interface used by the existing AI tool.
