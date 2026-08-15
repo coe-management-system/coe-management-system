@@ -203,3 +203,50 @@ def test_upload_accepts_unexpected_structure_workbook_but_maps_nothing_at_valida
     assert body["mapping"] == {}
     assert body["summary"]["valid"] == 0
     app.dependency_overrides[get_db] = override_get_db
+
+
+def test_upload_auto_detects_student_import_type_when_omitted():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Roll No", "Name", "Email", "Department", "Batch", "Group"])
+    ws.append(["CSE101", "Test Student", "test@example.com", "CSE", "2026", "4A"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    files = {"file": ("student_auto.xlsx", buf.read(),
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    response = client.post("/api/v1/imports", files=files)  # no import_type supplied
+    assert response.status_code == 201
+    assert response.json()["filename"] == "student_auto.xlsx"
+
+
+def test_upload_auto_detects_department_import_type_when_omitted():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Code", "Department Name"])
+    ws.append(["QATESTX", "QA Test Department"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    files = {"file": ("dept_auto.xlsx", buf.read(),
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    response = client.post("/api/v1/imports", files=files)  # no import_type supplied
+    assert response.status_code == 201
+
+
+def test_upload_rejects_ambiguous_columns_without_explicit_import_type():
+    app.dependency_overrides[faculty_required] = override_faculty_user
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Random Col A", "Random Col B", "Notes"])
+    ws.append(["x", "y", "z"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    files = {"file": ("ambiguous.xlsx", buf.read(),
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    response = client.post("/api/v1/imports", files=files)  # no import_type, no recognizable columns
+    assert response.status_code == 400
+    assert "explicitly" in response.json()["detail"].lower()
