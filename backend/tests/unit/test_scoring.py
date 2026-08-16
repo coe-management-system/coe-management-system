@@ -73,10 +73,10 @@ class TestScoring(unittest.TestCase):
             "violations": [],
         }
 
-        low = score_candidate(candidate, priority="low")
-        urgent = score_candidate(candidate, priority="urgent")
+        flexible = score_candidate(candidate, priority="flexible")
+        critical = score_candidate(candidate, priority="critical")
 
-        self.assertGreater(low["score"], urgent["score"])
+        self.assertGreater(flexible["score"], critical["score"])
 
     def test_candidate_a_preferred_over_overloading_candidate_b(self):
         # Candidate A: no conflicts, no overload.
@@ -125,7 +125,7 @@ class TestScoring(unittest.TestCase):
         }
 
         scores = {
-            "a": score_candidate(candidate, priority="low"),
+            "a": score_candidate(candidate, priority="flexible"),
             "b": score_candidate(candidate, priority="normal"),
             "c": score_candidate(candidate, priority="high"),
         }

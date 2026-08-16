@@ -46,21 +46,21 @@ class TestSchedulingService(unittest.TestCase):
     def test_get_faculty_workload(self):
         workload = self.service.get_faculty_workload(10)
 
-        self.assertEqual(workload["faculty_id"], 10)
-        self.assertEqual(workload["allocated_hours"], 2.0)
+        self.assertEqual(workload["summary"]["faculty_id"], 10)
+        self.assertEqual(workload["summary"]["allocated_hours"], 2.0)
+        self.assertEqual(workload["daily"]["total_hours"], 2.0)
+        self.assertEqual(workload["weekly"]["total_hours"], 2.0)
 
     def test_empty_timetable(self):
         service = SchedulingService()
 
         self.assertEqual(service.analyze_conflicts(), [])
 
-        self.assertEqual(
-            service.get_faculty_workload(10),
-            {
-                "faculty_id": 10,
-                "allocated_hours": 0,
-            },
-        )
+        workload = service.get_faculty_workload(10)
+        self.assertEqual(workload["summary"]["faculty_id"], 10)
+        self.assertEqual(workload["summary"]["allocated_hours"], 0)
+        self.assertEqual(workload["daily"]["total_hours"], 0)
+        self.assertEqual(workload["weekly"]["total_hours"], 0)
 
 
 if __name__ == "__main__":

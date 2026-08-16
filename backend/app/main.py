@@ -18,9 +18,6 @@ from app.api.routes.training import router as training_router
 from app.api.routes.subjects import router as subjects_router
 from app.api.routes.company import router as company_router
 from app.api.routes.technology import router as technology_router
-from app.api.routes.timetable import router as timetable_router
-from app.api.routes.workload import router as workload_router
-from app.api.routes.scheduling import router as scheduling_router
 
 
 app = FastAPI(

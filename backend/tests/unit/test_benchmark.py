@@ -1,4 +1,4 @@
-import unittest
+﻿import unittest
 
 from app.scheduling.benchmark import (
     build_benchmark_scenario,
@@ -6,6 +6,8 @@ from app.scheduling.benchmark import (
     run_benchmark,
     run_optimization_benchmark,
     run_performance_benchmark,
+    run_rnd_evaluation,
+    run_rnd_evaluation_suite,
 )
 
 
@@ -102,6 +104,27 @@ class TestBenchmark(unittest.TestCase):
         self.assertIn("input_size", results[10])
         self.assertIn("execution_time_seconds", results[10])
         self.assertIn("result_quality", results[10])
+
+    def test_rnd_evaluation_compares_all_approaches(self):
+        result = run_rnd_evaluation()
+
+        self.assertEqual(
+            set(result["approaches"].keys()),
+            {"greedy_baseline", "constraint_based", "optimization"},
+        )
+        self.assertIn("best_approach", result["comparison"])
+        self.assertIn("syllabus_delay_estimate", result)
+
+    def test_rnd_evaluation_suite_handles_synthetic_scenarios(self):
+        results = run_rnd_evaluation_suite(sizes=(10,))
+
+        self.assertIn(10, results)
+        entry = results[10]
+        self.assertEqual(
+            set(entry["avg_execution_time_seconds"].keys()),
+            {"greedy_baseline", "constraint_based", "optimization"},
+        )
+        self.assertEqual(len(entry["detailed_runs"]), 3)
 
 
 if __name__ == "__main__":

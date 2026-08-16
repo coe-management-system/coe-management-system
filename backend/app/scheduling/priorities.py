@@ -19,10 +19,15 @@ must be supplied as part of the timetable event.
 
 
 PRIORITY_LEVELS = {
-    "low": 1,
+    "flexible": 1,
     "normal": 2,
     "high": 3,
-    "urgent": 4,
+    "critical": 4,
+}
+
+_PRIORITY_ALIASES = {
+    "low": "flexible",
+    "urgent": "critical",
 }
 
 
@@ -31,9 +36,11 @@ def get_priority_value(priority):
     Convert a priority name into its numeric scheduling value.
 
     Args:
-        priority: Priority name such as low, normal, high, or urgent.
-                  Priority matching is case-insensitive. Numeric priority
-                  values from 1 to 4 are returned unchanged.
+        priority: Priority name such as flexible, normal, high, or critical.
+                  Priority matching is case-insensitive. Legacy aliases
+                  ``low`` and ``urgent`` are also accepted for backward
+                  compatibility. Numeric priority values from 1 to 4 are
+                  returned unchanged.
 
     Returns:
         Integer priority value from 1 to 4.
@@ -42,9 +49,11 @@ def get_priority_value(priority):
         ValueError: If the supplied priority is not supported.
 
     Examples:
-        get_priority_value("low") -> 1
+        get_priority_value("flexible") -> 1
         get_priority_value("normal") -> 2
         get_priority_value("high") -> 3
+        get_priority_value("critical") -> 4
+        get_priority_value("low") -> 1
         get_priority_value("urgent") -> 4
         get_priority_value(3) -> 3
     """
@@ -56,12 +65,15 @@ def get_priority_value(priority):
             f"Expected one of: {', '.join(PRIORITY_LEVELS.keys())}"
         )
 
-    priority = priority.lower()
+    normalized = priority.lower()
 
-    if priority not in PRIORITY_LEVELS:
+    if normalized in _PRIORITY_ALIASES:
+        normalized = _PRIORITY_ALIASES[normalized]
+
+    if normalized not in PRIORITY_LEVELS:
         raise ValueError(
             f"Invalid priority '{priority}'. "
             f"Expected one of: {', '.join(PRIORITY_LEVELS.keys())}"
         )
 
-    return PRIORITY_LEVELS[priority]
+    return PRIORITY_LEVELS[normalized]

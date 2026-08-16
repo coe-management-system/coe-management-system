@@ -10,6 +10,7 @@ from app.models.attendance import Attendance
 from app.models.training import TrainingProgram, TrainingSession
 from app.models.certification import Certification, CertificationAttempt
 from app.models.timetable import TimetableEvent
+from app.models.timetable_version import TimetableVersion, TimetableVersionEvent, VersionStatus
 from app.models.workload import WorkloadAllocation
 from app.models.import_job import ImportJob
 from app.models.syllabus import SyllabusTopic

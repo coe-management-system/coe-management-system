@@ -22,6 +22,8 @@ from .what_if_simulator import simulate_scenario
 from .workload_optimizer import (
     calculate_faculty_workload,
     calculate_workload_report,
+    calculate_daily_workload,
+    calculate_weekly_workload,
 )
 
 
@@ -105,15 +107,19 @@ class SchedulingService:
             faculty_id: ID of the faculty member.
 
         Returns:
-            Faculty workload information.
+            Faculty workload information including daily and weekly breakdown.
         """
 
         event_data = [event.to_dict() for event in self.events]
 
-        return calculate_faculty_workload(
-            event_data,
-            faculty_id,
-        )
+        return {
+            "summary": calculate_faculty_workload(
+                event_data,
+                faculty_id,
+            ),
+            "daily": calculate_daily_workload(event_data, faculty_id),
+            "weekly": calculate_weekly_workload(event_data, faculty_id),
+        }
 
     def get_workload_report(self, capacities=None):
         """
