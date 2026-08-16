@@ -368,3 +368,98 @@ def test_no_response_schema_exposes_file_path():
 
     source = inspect.getsource(import_schema)
     assert "file_path" not in source
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_suggests_close_department_match(mock_read_excel):
+    db = create_db()
+    close_dept = MagicMock()
+    close_dept.id = 5
+    close_dept.code = "CSE"
+    db.scalar.return_value = None  # exact department lookup fails
+    db.scalars.return_value.all.return_value = [close_dept]  # used for all_departments
+
+    df = make_df(
+        [["CSE105", "Priya", "priya@example.com", "CSEE", "2026", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    ref_error = result["records"][0]["reference_errors"][0]
+    assert ref_error["error_code"] == "UNKNOWN_DEPARTMENT"
+    assert ref_error["suggested_match"] == "CSE"
+    assert 0.0 < ref_error["suggestion_confidence"] <= 1.0
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_suggests_close_batch_match(mock_read_excel):
+    db = create_db()
+    department = create_department()
+    close_batch = MagicMock()
+    close_batch.id = 7
+    close_batch.year = 2026
+
+    def scalar_side_effect(*args, **kwargs):
+        if not hasattr(scalar_side_effect, "calls"):
+            scalar_side_effect.calls = 0
+        scalar_side_effect.calls += 1
+        if scalar_side_effect.calls == 1:
+            return department
+        return None  # batch lookup fails
+
+    db.scalar.side_effect = scalar_side_effect
+    db.scalars.return_value.all.return_value = [close_batch]
+
+    df = make_df(
+        [["CSE106", "Rahul", "rahul@example.com", "CSE", "2027", "4A"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    ref_error = result["records"][0]["reference_errors"][0]
+    assert ref_error["error_code"] == "UNKNOWN_BATCH"
+    assert ref_error["suggested_match"] == "2026"
+    assert 0.0 < ref_error["suggestion_confidence"] <= 1.0
+
+
+@patch("app.services.import_service.read_excel")
+def test_validate_import_suggests_close_group_match(mock_read_excel):
+    db = create_db()
+    department = create_department()
+    batch = create_batch()
+    close_group = MagicMock()
+    close_group.id = 9
+    close_group.name = "4A"
+
+    def scalar_side_effect(*args, **kwargs):
+        if not hasattr(scalar_side_effect, "calls"):
+            scalar_side_effect.calls = 0
+        scalar_side_effect.calls += 1
+        if scalar_side_effect.calls == 1:
+            return department
+        if scalar_side_effect.calls == 2:
+            return batch
+        return None  # group lookup fails
+
+    db.scalar.side_effect = scalar_side_effect
+    db.scalars.return_value.all.return_value = [close_group]
+
+    df = make_df(
+        [["CSE107", "Anita", "anita@example.com", "CSE", "2026", "4AA"]],
+        ["roll_no", "name", "email", "department", "batch", "group"],
+    )
+    mock_read_excel.return_value = df
+
+    job = make_import_job()
+    result = ImportService.validate_import(db, job)
+
+    ref_error = result["records"][0]["reference_errors"][0]
+    assert ref_error["error_code"] == "UNKNOWN_GROUP"
+    assert ref_error["suggested_match"] == "4A"
+    assert 0.0 < ref_error["suggestion_confidence"] <= 1.0

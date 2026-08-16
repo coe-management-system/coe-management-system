@@ -36,6 +36,6 @@ registry.register_tool(Tool(
     description="Retrieve the current workload and assigned hours for a specific faculty member.",
     parameters={"faculty_id": "The numerical ID of the faculty member (e.g., 12)"},
     required_parameters=["faculty_id"],
-    permission="READ",
+    permission="FACULTY",
     executor=execute_get_faculty_workload
 ))

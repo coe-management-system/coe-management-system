@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -8,6 +8,9 @@ import openpyxl
 from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.models.user import User
+from app.excel.reader import read_excel
+from app.excel.detector import detect_columns
+from app.excel.schema_detector import detect_import_type
 from app.schemas.import_schema import (
     ImportCreateResponse,
     ImportDetailResponse,
@@ -31,6 +34,7 @@ ALLOWED_CONTENT_TYPES = {
     "application/octet-stream",
 }
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
+AUTO_DETECT_CONFIDENCE_THRESHOLD = 0.7
 
 
 def _validate_workbook_readable(file_path: str) -> None:
@@ -83,7 +87,7 @@ def _validate_workbook_readable(file_path: str) -> None:
 )
 def create_import(
     file: UploadFile = File(...),
-    import_type: str = "student",
+    import_type: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(faculty_required),
 ):
@@ -91,7 +95,13 @@ def create_import(
     Registers a new import: validates the upload boundary (extension,
     content type, size, workbook readability), saves the file, computes
     its hash, and creates an ImportJob record. Does NOT process rows yet
-    — call POST /imports/{id}/validate next.
+    - call POST /imports/{id}/validate next.
+
+    If import_type is not explicitly supplied, the system attempts to
+    auto-detect it from the workbook's column headers (M2-03). Detection
+    is only trusted above AUTO_DETECT_CONFIDENCE_THRESHOLD; below that,
+    the caller must specify import_type explicitly rather than have the
+    system silently guess.
     """
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
@@ -128,6 +138,28 @@ def create_import(
 
         _validate_workbook_readable(temporary_path)
 
+        detected_type = None
+        detected_confidence = None
+
+        if import_type is None:
+            df = read_excel(temporary_path)
+            excel_columns = detect_columns(df)
+            detection = detect_import_type(excel_columns)
+            detected_type = detection["detected_type"]
+            detected_confidence = detection["confidence"]
+
+            if detected_type is None or detected_confidence < AUTO_DETECT_CONFIDENCE_THRESHOLD:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Could not confidently auto-detect import_type from the workbook's "
+                        f"columns (best guess: {detected_type}, confidence: {detected_confidence}). "
+                        "Please specify import_type explicitly (student or department)."
+                    ),
+                )
+
+            import_type = detected_type
+
         if import_type not in ("student", "department"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -162,6 +194,7 @@ def create_import(
         ) from exc
     finally:
         file.file.close()
+
 
 @router.get(
     "",
@@ -256,7 +289,7 @@ def validate_import(
 ):
     """
     Runs the Excel pipeline and entity resolution, generates a preview.
-    Writes ZERO student records — this only reads and computes.
+    Writes ZERO student records - this only reads and computes.
     """
     import_job = ImportService.get_import(db, import_id)
     if import_job is None:

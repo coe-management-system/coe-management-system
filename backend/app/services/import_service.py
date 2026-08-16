@@ -14,6 +14,7 @@ from app.excel.validator import validate_record
 from app.excel.duplicate_detector import detect_duplicates
 from app.excel.import_definitions import FieldMapping
 from app.excel.mapping_engine import map_columns_for_definition
+from app.excel.confidence_matcher import find_best_match
 from app.models.batch import Batch
 from app.models.department import Department
 from app.models.group import Group
@@ -143,12 +144,21 @@ class ImportService:
                     )
                     if department is None:
                         category = "REFERENCE_ERROR"
-                        reference_errors.append({
+                        all_departments = [
+                            {"id": d.id, "code": d.code}
+                            for d in db.scalars(select(Department)).all()
+                        ]
+                        suggestion = find_best_match(str(record.get("department", "")), all_departments, "code")
+                        error_entry = {
                             "field": "department",
                             "value": record.get("department"),
                             "error_code": "UNKNOWN_DEPARTMENT",
                             "message": f"Department '{record.get('department')}' not found",
-                        })
+                        }
+                        if suggestion["best_candidate"] is not None:
+                            error_entry["suggested_match"] = suggestion["best_candidate"]["code"]
+                            error_entry["suggestion_confidence"] = suggestion["confidence"]
+                        reference_errors.append(error_entry)
 
                 if category == "VALID":
                     try:
@@ -163,12 +173,23 @@ class ImportService:
                     ) if year is not None else None
                     if batch is None:
                         category = "REFERENCE_ERROR"
-                        reference_errors.append({
+                        dept_batches = [
+                            {"id": b.id, "year": str(b.year)}
+                            for b in db.scalars(
+                                select(Batch).where(Batch.department_id == department.id)
+                            ).all()
+                        ]
+                        suggestion = find_best_match(str(record.get("batch", "")), dept_batches, "year")
+                        error_entry = {
                             "field": "batch",
                             "value": record.get("batch"),
                             "error_code": "UNKNOWN_BATCH",
                             "message": f"Batch '{record.get('batch')}' not found for this department",
-                        })
+                        }
+                        if suggestion["best_candidate"] is not None:
+                            error_entry["suggested_match"] = suggestion["best_candidate"]["year"]
+                            error_entry["suggestion_confidence"] = suggestion["confidence"]
+                        reference_errors.append(error_entry)
 
                 if category == "VALID":
                     group = db.scalar(
@@ -179,12 +200,23 @@ class ImportService:
                     )
                     if group is None:
                         category = "REFERENCE_ERROR"
-                        reference_errors.append({
+                        batch_groups = [
+                            {"id": g.id, "name": g.name}
+                            for g in db.scalars(
+                                select(Group).where(Group.batch_id == batch.id)
+                            ).all()
+                        ]
+                        suggestion = find_best_match(str(record.get("group", "")), batch_groups, "name")
+                        error_entry = {
                             "field": "group",
                             "value": record.get("group"),
                             "error_code": "UNKNOWN_GROUP",
                             "message": f"Group '{record.get('group')}' not found for this batch",
-                        })
+                        }
+                        if suggestion["best_candidate"] is not None:
+                            error_entry["suggested_match"] = suggestion["best_candidate"]["name"]
+                            error_entry["suggestion_confidence"] = suggestion["confidence"]
+                        reference_errors.append(error_entry)
 
                 existing_student = None
                 if category == "VALID":
