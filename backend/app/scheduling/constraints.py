@@ -15,6 +15,9 @@ scheduling engine becomes more sophisticated.
 """
 
 
+from .priorities import PRIORITY_LEVELS, get_priority_value
+
+
 def validate_event(event):
     """
     Validate the basic structure of a timetable event.
@@ -61,9 +64,9 @@ def validate_event(event):
     if event["start_time"] >= event["end_time"]:
         errors.append("start_time must be earlier than end_time")
 
-    valid_priorities = {"low", "normal", "high", "urgent"}
-
-    if event["priority"] not in valid_priorities:
+    try:
+        get_priority_value(event["priority"])
+    except ValueError:
         errors.append(
             f"Invalid priority: {event['priority']}"
         )

@@ -174,8 +174,8 @@ def calculate_workload_report(events, capacities=None):
 
     Returns:
         List of workload dictionaries, one per faculty member. Each entry
-        contains faculty_id, allocated_hours, capacity, overload, and
-        status.
+        contains faculty_id, allocated_hours, capacity, remaining_capacity,
+        overload, and status.
     """
     faculty_ids = sorted({event["faculty_id"] for event in events})
 
@@ -193,6 +193,7 @@ def calculate_workload_report(events, capacities=None):
                     "faculty_id": faculty_id,
                     "allocated_hours": allocated,
                     "capacity": None,
+                    "remaining_capacity": None,
                     "overload": None,
                     "status": "unknown",
                 }
@@ -200,6 +201,7 @@ def calculate_workload_report(events, capacities=None):
             continue
 
         overload = allocated - capacity
+        remaining = max(0.0, capacity - allocated)
 
         if allocated > capacity:
             status = "overloaded"
@@ -213,9 +215,102 @@ def calculate_workload_report(events, capacities=None):
                 "faculty_id": faculty_id,
                 "allocated_hours": allocated,
                 "capacity": capacity,
+                "remaining_capacity": remaining,
                 "overload": overload,
                 "status": status,
             }
         )
 
     return report
+
+
+def calculate_daily_workload(events, faculty_id):
+    """
+    Calculate daily workload for a faculty member.
+
+    Args:
+        events: List of timetable event dictionaries.
+        faculty_id: ID of the faculty member.
+
+    Returns:
+        Dictionary containing:
+            - faculty_id: Requested faculty member ID.
+            - daily_breakdown: List of daily workload entries sorted by date.
+            - total_hours: Total allocated hours across all days.
+    """
+    from collections import defaultdict
+
+    daily = defaultdict(float)
+
+    for event in events:
+        if event["faculty_id"] != faculty_id:
+            continue
+        day = event.get("date")
+        if day is None:
+            continue
+        daily[day] += calculate_event_duration(event)
+
+    breakdown = []
+    for day in sorted(daily):
+        breakdown.append(
+            {
+                "date": day,
+                "hours": round(daily[day], 4),
+            }
+        )
+
+    total = round(sum(entry["hours"] for entry in breakdown), 4)
+
+    return {
+        "faculty_id": faculty_id,
+        "daily_breakdown": breakdown,
+        "total_hours": total,
+    }
+
+
+def calculate_weekly_workload(events, faculty_id):
+    """
+    Calculate weekly workload for a faculty member.
+
+    Args:
+        events: List of timetable event dictionaries.
+        faculty_id: ID of the faculty member.
+
+    Returns:
+        Dictionary containing:
+            - faculty_id: Requested faculty member ID.
+            - weekly_breakdown: List of weekly workload entries sorted by week start.
+            - total_hours: Total allocated hours across all weeks.
+    """
+    from collections import defaultdict
+    from datetime import date, timedelta
+
+    weekly = defaultdict(float)
+
+    for event in events:
+        if event["faculty_id"] != faculty_id:
+            continue
+        day = event.get("date")
+        if day is None:
+            continue
+        if isinstance(day, str):
+            day = date.fromisoformat(day)
+        week_start = day - timedelta(days=day.weekday())
+        weekly[week_start.isoformat()] += calculate_event_duration(event)
+
+    breakdown = []
+    for week_start in sorted(weekly):
+        breakdown.append(
+            {
+                "week_start": week_start,
+                "hours": round(weekly[week_start], 4),
+            }
+        )
+
+    total = round(sum(entry["hours"] for entry in breakdown), 4)
+
+    return {
+        "faculty_id": faculty_id,
+        "weekly_breakdown": breakdown,
+        "total_hours": total,
+    }

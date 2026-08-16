@@ -8,13 +8,19 @@ engine and the Day 4 deterministic baseline optimizer.
 
 No genetic algorithms, OR-Tools, reinforcement learning, or AI scheduling
 is used. The goal is a deterministic baseline.
+
+M3-12 R&D Evaluation: Compares greedy, constraint-based, and optimization
+approaches. Measures conflicts, overload, syllabus delay, moved classes,
+and runtime.
 """
 
 import time
 from datetime import date, timedelta
+from typing import Dict, Any, List, Optional
 
 from .comparison import compare_schedules
 from .conflict_detector import detect_conflicts
+from .candidate_generator import generate_slots, evaluate_candidates
 from .objective import evaluate_objective
 from .optimizer import BaselineOptimizer, OptimizationConfig
 from .recommendation import recommend_reschedule
@@ -430,3 +436,307 @@ def _synthetic_scenario(size):
         "events": events,
         "capacities": capacities,
     }
+
+
+# =============================================================================
+# M3-12 R&D Evaluation Functions
+# =============================================================================
+
+def run_greedy_baseline(
+    events: List[Dict],
+    capacities: Dict[int, float],
+    config: Optional[OptimizationConfig] = None,
+) -> Dict[str, Any]:
+    """
+    Run the greedy baseline approach (recommend_reschedule).
+    
+    This is the Day 3 approach - single event rescheduling with
+    constraint-aware candidate evaluation and scoring.
+    """
+    # Create a copy to avoid mutation
+    events_copy = [dict(e) for e in events]
+    
+    # Find first conflicted event
+    conflicts = detect_conflicts(events_copy)
+    if not conflicts:
+        return {
+            "approach": "greedy_baseline",
+            "status": "NO_CONFLICTS",
+            "initial_conflicts": 0,
+            "final_conflicts": 0,
+            "moved_events": 0,
+            "execution_time_seconds": 0.0,
+        }
+    
+    # Get the first conflicted event
+    conflicted_event = conflicts[0]
+    target_event_id = conflicted_event.get("event_id", 1)
+    
+    start = time.perf_counter()
+    
+    recommendation = recommend_reschedule(
+        events_copy,
+        target_event_id,
+        capacities=capacities,
+    )
+    
+    elapsed = time.perf_counter() - start
+    
+    # Greedy doesn't actually move events, just recommends
+    final_conflicts = len(detect_conflicts(events_copy))
+    
+    return {
+        "approach": "greedy_baseline",
+        "status": recommendation.get("status", "UNKNOWN"),
+        "initial_conflicts": len(conflicts),
+        "final_conflicts": final_conflicts,
+        "conflicts_resolved": len(conflicts) - final_conflicts,
+        "moved_events": 0,  # Greedy only recommends, doesn't move
+        "recommendation": recommendation,
+        "execution_time_seconds": round(elapsed, 6),
+    }
+
+
+def run_constraint_based_approach(
+    events: List[Dict],
+    capacities: Dict[int, float],
+    config: Optional[OptimizationConfig] = None,
+) -> Dict[str, Any]:
+    """
+    Run the constraint-based approach (candidate generation + scoring).
+    
+    This evaluates all feasible candidates and selects the best
+    without global optimization.
+    """
+    events_copy = [dict(e) for e in events]
+    
+    start = time.perf_counter()
+    
+    # Generate all feasible slots for the date range in events
+    dates = list(set(e["date"] for e in events_copy))
+    slots = generate_slots(dates=dates)
+    
+    # Evaluate candidates for each event
+    evaluations = []
+    for event in events_copy:
+        event_evals = evaluate_candidates(
+            events_copy,
+            event,
+            slots,
+            capacities=capacities,
+        )
+        evaluations.extend(event_evals)
+    
+    # Filter feasible
+    feasible = [e for e in evaluations if e.get("status") == "FEASIBLE"]
+    
+    # Select best by score (if scoring is available)
+    best = None
+    if feasible:
+        best = max(feasible, key=lambda x: x.get("score", -float('inf')))
+    
+    elapsed = time.perf_counter() - start
+    
+    return {
+        "approach": "constraint_based",
+        "status": "OPTIMIZED" if best else "NO_FEASIBLE",
+        "initial_conflicts": len(detect_conflicts(events_copy)),
+        "final_conflicts": len(detect_conflicts(events_copy)),  # Constraint-based doesn't move
+        "candidates_evaluated": len(evaluations),
+        "feasible_candidates": len([e for e in evaluations if e.get("status") == "FEASIBLE"]),
+        "best_candidate_score": best.get("score") if best else None,
+        "execution_time_seconds": round(time.perf_counter() - start, 6),
+    }
+
+
+def run_optimization_approach(
+    events: List[Dict],
+    capacities: Dict[int, float],
+    config: Optional[OptimizationConfig] = None,
+) -> Dict[str, Any]:
+    """
+    Run the full optimization approach (BaselineOptimizer).
+    
+    This is the Day 4 approach - global optimization with objective
+    function and iterative improvement.
+    """
+    events_copy = [dict(e) for e in events]
+    
+    start = time.perf_counter()
+    
+    optimizer = BaselineOptimizer(
+        capacities=capacities,
+        config=config or OptimizationConfig(),
+    )
+    result = optimizer.optimize(
+        events_copy,
+        capacities=capacities,
+        config=config,
+    )
+    
+    elapsed = time.perf_counter() - start
+    
+    return {
+        "approach": "optimization",
+        "status": result.status,
+        "initial_conflicts": result.conflicts_before,
+        "final_conflicts": result.conflicts_after,
+        "conflicts_resolved": result.conflicts_before - result.conflicts_after,
+        "moved_events": result.events_changed,
+        "objective_improvement": result.original_score - result.optimized_score,
+        "objective_breakdown": result.objective_breakdown,
+        "execution_time_seconds": round(elapsed, 6),
+    }
+
+
+def run_rnd_evaluation(
+    scenario: Optional[Dict] = None,
+    config: Optional[OptimizationConfig] = None,
+) -> Dict[str, Any]:
+    """
+    Run comprehensive R&D evaluation comparing all three approaches.
+    
+    Measures: conflicts, overload, syllabus delay, moved classes, runtime.
+    
+    Args:
+        scenario: Optional scenario dict. Defaults to build_optimization_scenario().
+        config: Optional OptimizationConfig.
+        
+    Returns:
+        Dictionary with comparison metrics for all approaches.
+    """
+    if scenario is None:
+        scenario = build_optimization_scenario()
+    
+    events = scenario["events"]
+    capacities = scenario["capacities"]
+    meta = scenario.get("meta") or _derive_meta(events)
+    
+    # Calculate syllabus delay proxy (based on pending classes)
+    # This is a placeholder - real implementation would use syllabus data
+    syllabus_delay = _estimate_syllabus_delay(events, capacities)
+    
+    # Run all three approaches
+    greedy_result = run_greedy_baseline(events, capacities, config)
+    constraint_result = run_constraint_based_approach(events, capacities, config)
+    optimization_result = run_optimization_approach(events, capacities, config)
+    
+    # Workload metrics
+    workload_before = evaluate_objective(events, capacities=capacities)["breakdown"].get("workload_overload", 0.0)
+    
+    comparison = {
+        "scenario": meta,
+        "syllabus_delay_estimate": syllabus_delay,
+        "approaches": {
+            "greedy_baseline": greedy_result,
+            "constraint_based": constraint_result,
+            "optimization": optimization_result,
+        },
+        "comparison": {
+            "conflicts": {
+                "greedy": {"initial": greedy_result["initial_conflicts"], "final": greedy_result["final_conflicts"]},
+                "constraint_based": {"initial": constraint_result["initial_conflicts"], "final": constraint_result["final_conflicts"]},
+                "optimization": {"initial": optimization_result["initial_conflicts"], "final": optimization_result["final_conflicts"]},
+            },
+            "moved_events": {
+                "greedy": greedy_result.get("moved_events", 0),
+                "constraint_based": 0,
+                "optimization": optimization_result.get("moved_events", 0),
+            },
+            "execution_time_seconds": {
+                "greedy": greedy_result["execution_time_seconds"],
+                "constraint_based": constraint_result["execution_time_seconds"],
+                "optimization": optimization_result["execution_time_seconds"],
+            },
+            "best_approach": _determine_best_approach(greedy_result, constraint_result, optimization_result),
+        },
+    }
+    
+    return comparison
+
+
+def _derive_meta(events: List[Dict]) -> Dict[str, Any]:
+    """Derive scenario metadata from the event list when none is provided."""
+    return {
+        "number_of_events": len(events),
+        "number_of_faculty": len({e["faculty_id"] for e in events}),
+        "number_of_rooms": len({e["room_id"] for e in events if e.get("room_id")}),
+        "number_of_batches_groups": len({e["batch_id"] for e in events}),
+    }
+
+
+def _estimate_syllabus_delay(events: List[Dict], capacities: Dict[int, float]) -> float:
+    """Estimate syllabus delay based on workload and conflicts."""
+    # Simple heuristic: more conflicts and overload = more delay
+    conflicts = len(detect_conflicts(events))
+    objective = evaluate_objective(events, capacities=capacities)
+    workload_overload = objective["breakdown"].get("workload_overload", 0.0)
+    return conflicts * 0.5 + workload_overload * 0.1
+
+
+def _determine_best_approach(greedy, constraint, optimization) -> str:
+    """Determine the best approach based on multiple criteria."""
+    scores = {}
+    
+    for name, result in [("greedy", greedy), ("constraint_based", constraint), ("optimization", optimization)]:
+        score = 0
+        # Fewer final conflicts is better
+        score -= result.get("final_conflicts", 999) * 10
+        # Fewer moved events is better (less disruption)
+        score -= result.get("moved_events", 0) * 2
+        # Faster is better
+        score -= result.get("execution_time_seconds", 999) * 100
+        # Prefer approaches that actually resolve conflicts
+        if result.get("conflicts_resolved", 0) > 0:
+            score += 50
+        
+        scores[name] = score
+    
+    return max(scores, key=scores.get)
+
+
+def run_rnd_evaluation_suite(
+    sizes: tuple = (10, 50, 100),
+    runs_per_size: int = 3,
+) -> Dict[str, Any]:
+    """
+    Run R&D evaluation across multiple scenario sizes.
+    
+    This provides the comprehensive benchmark for R&D evaluation.
+    """
+    results = {}
+    
+    for size in sizes:
+        scenario = _synthetic_scenario(size)
+        size_results = []
+        
+        for _ in range(runs_per_size):
+            result = run_rnd_evaluation(scenario)
+            size_results.append(result)
+        
+        # Aggregate
+        avg_times = {
+            approach: sum(r["approaches"][approach]["execution_time_seconds"] for r in size_results) / len(size_results)
+            for approach in ["greedy_baseline", "constraint_based", "optimization"]
+        }
+        
+        avg_conflicts = {
+            approach: sum(r["approaches"][approach]["final_conflicts"] for r in size_results) / len(size_results)
+            for approach in ["greedy_baseline", "constraint_based", "optimization"]
+        }
+        
+        avg_moved = {
+            approach: sum(r["approaches"][approach].get("moved_events", 0) for r in size_results) / len(size_results)
+            for approach in ["greedy_baseline", "constraint_based", "optimization"]
+        }
+        
+        results[size] = {
+            "input_size": size,
+            "runs": runs_per_size,
+            "avg_execution_time_seconds": avg_times,
+            "avg_final_conflicts": avg_conflicts,
+            "avg_moved_events": avg_moved,
+            "detailed_runs": size_results,
+        }
+    
+    return results

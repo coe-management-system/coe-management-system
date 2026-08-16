@@ -331,3 +331,58 @@ def test_optimize_no_feasible_scenario():
     assert data["conflicts_before"] == 1
     assert data["conflicts_after"] == 1
     assert "rejected_candidates" in data
+
+
+def test_candidates_requires_token():
+    unauthenticated()
+    response = client.post(
+        "/api/v1/scheduling/candidates",
+        json={"event_id": 1},
+    )
+
+    assert response.status_code == 401
+
+
+def test_candidates_forbidden_for_wrong_role():
+    as_student()
+    response = client.post(
+        "/api/v1/scheduling/candidates",
+        json={"event_id": 1},
+    )
+
+    assert response.status_code == 403
+
+
+def test_candidates_returns_feasible_slots():
+    as_faculty()
+    response = client.post(
+        "/api/v1/scheduling/candidates",
+        json={"event_id": 1},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "evaluations" in data
+    assert "feasible_count" in data
+    assert data["event_id"] == 1
+    assert any(e["status"] == "FEASIBLE" for e in data["evaluations"])
+
+
+def test_candidates_filters_by_date_range():
+    as_faculty()
+    response = client.post(
+        "/api/v1/scheduling/candidates",
+        json={
+            "event_id": 1,
+            "date_range": {
+                "start": "2026-08-15",
+                "end": "2026-08-15",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert all(
+        e["date"] == "2026-08-15" for e in data["evaluations"]
+    )

@@ -69,13 +69,13 @@ class TestConstraints(unittest.TestCase):
             "date": "2026-08-15",
             "start_time": "10:00",
             "end_time": "11:00",
-            "priority": "critical",
+            "priority": "unknown",
         }
 
         errors = validate_event(event)
 
         self.assertIn(
-            "Invalid priority: critical",
+            "Invalid priority: unknown",
             errors,
         )
 
