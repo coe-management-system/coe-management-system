@@ -1,7 +1,16 @@
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.models.batch import Batch
+from app.models.coe import CoE
+from app.models.company import Company
+from app.models.faculty import Faculty
+from app.models.group import Group
 from app.models.student import Student
+from app.models.technology import Technology
 from app.models.training import TrainingSession, TrainingProgram
 from typing import List, Dict, Any
 
