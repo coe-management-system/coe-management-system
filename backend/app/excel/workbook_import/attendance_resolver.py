@@ -25,6 +25,7 @@ def resolve_attendance(
     subject_by_code = {
         item.code.upper(): item for item in plan.subjects
     }
+    seen_keys: set[tuple[str, str, str]] = set()
 
     for row in workbook_plan.attendance:
         roll_no = row.roll_no.upper()
@@ -59,6 +60,22 @@ def resolve_attendance(
             )
             continue
 
+        dedup_key = (roll_no, subject_code, row.session_date.strip())
+        if dedup_key in seen_keys:
+            plan.errors.append(
+                {
+                    "entity": "attendance",
+                    "roll_no": row.roll_no,
+                    "subject_code": row.subject_code,
+                    "error": (
+                        "Duplicate attendance row in workbook for "
+                        f"student '{row.roll_no}', subject "
+                        f"'{row.subject_code}', date '{row.session_date}'"
+                    ),
+                }
+            )
+            continue
+
         status = row.status.upper()
         if status not in VALID_ATTENDANCE_STATUSES:
             plan.errors.append(
@@ -73,6 +90,8 @@ def resolve_attendance(
                 }
             )
             continue
+
+        seen_keys.add(dedup_key)
 
         plan.attendance.append(
             PlannedAttendance(
