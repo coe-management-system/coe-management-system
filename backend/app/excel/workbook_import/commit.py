@@ -6,6 +6,8 @@ from app.models.group import Group
 from app.models.student import Student
 from app.models.subject import Subject
 
+from app.models.attendance import Attendance
+
 from .resolution_plan import WorkbookResolutionPlan
 
 
@@ -23,6 +25,7 @@ def commit_workbook(db: Session, plan: WorkbookResolutionPlan) -> dict:
     created_groups = []
     created_students = []
     created_subjects = []
+    created_attendance = []
 
     try:
         department_ids: dict[str, int] = {}
@@ -121,6 +124,40 @@ def commit_workbook(db: Session, plan: WorkbookResolutionPlan) -> dict:
             imported_students.append(item.roll_no)
             created_students.append(student)
 
+        student_id_by_roll_no: dict[str, int] = {
+            item.roll_no: item.database_id for item in plan.students
+        }
+        subject_id_by_code: dict[str, int] = {
+            item.code: item.database_id for item in plan.subjects
+        }
+
+        for item in plan.attendance:
+            if item.database_id is not None:
+                continue
+
+            student_id = student_id_by_roll_no.get(item.roll_no)
+            subject_id = subject_id_by_code.get(item.subject_code)
+
+            if student_id is None:
+                raise WorkbookCommitError(
+                    f"Student dependency missing for attendance row (roll_no='{item.roll_no}')"
+                )
+            if subject_id is None:
+                raise WorkbookCommitError(
+                    f"Subject dependency missing for attendance row (subject_code='{item.subject_code}')"
+                )
+
+            attendance = Attendance(
+                student_id=student_id,
+                subject_id=subject_id,
+                session_date=item.session_date,
+                status=item.status,
+            )
+            db.add(attendance)
+            db.flush()
+            item.database_id = attendance.id
+            created_attendance.append(attendance)
+
         db.commit()
 
         return {
@@ -130,6 +167,7 @@ def commit_workbook(db: Session, plan: WorkbookResolutionPlan) -> dict:
             "created_groups": len(created_groups),
             "created_subjects": len(created_subjects),
             "created_students": len(created_students),
+            "created_attendance": len(created_attendance),
             "imported_students": imported_students,
         }
 
