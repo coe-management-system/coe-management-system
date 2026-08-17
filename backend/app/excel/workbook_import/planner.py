@@ -46,12 +46,21 @@ class SubjectPlan:
 
 
 @dataclass
+class AttendancePlan:
+    roll_no: str
+    subject_code: str
+    session_date: str
+    status: str
+
+
+@dataclass
 class WorkbookPlan:
     departments: list[DepartmentPlan] = field(default_factory=list)
     batches: list[BatchPlan] = field(default_factory=list)
     groups: list[GroupPlan] = field(default_factory=list)
     students: list[StudentPlan] = field(default_factory=list)
     subjects: list[SubjectPlan] = field(default_factory=list)
+    attendance: list[AttendancePlan] = field(default_factory=list)
 
 
 def _clean(value: Any) -> str:
@@ -152,6 +161,21 @@ def plan_subjects(workbook: dict) -> list[SubjectPlan]:
     ]
 
 
+def plan_attendance(workbook: dict) -> list[AttendancePlan]:
+    df = _get_sheet(workbook, "Attendance")
+    if df is None:
+        return []
+    return [
+        AttendancePlan(
+            roll_no=_clean(row["Admission ID"]).upper(),
+            subject_code=_clean(row["Subject Code"]).upper(),
+            session_date=_clean(row["Date"]),
+            status=_clean(row["Status"]).upper(),
+        )
+        for _, row in df.iterrows()
+    ]
+
+
 def build_workbook_plan(workbook: dict) -> WorkbookPlan:
     return WorkbookPlan(
         departments=plan_departments(workbook),
@@ -159,4 +183,5 @@ def build_workbook_plan(workbook: dict) -> WorkbookPlan:
         groups=plan_groups(workbook),
         students=plan_students(workbook),
         subjects=plan_subjects(workbook),
+        attendance=plan_attendance(workbook),
     )
