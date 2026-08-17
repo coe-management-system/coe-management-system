@@ -1,6 +1,8 @@
 from app.excel.workbook_import.planner import WorkbookPlan
 from app.excel.workbook_import.resolution_plan import PlannedAttendance, WorkbookResolutionPlan
 
+VALID_ATTENDANCE_STATUSES = {"PRESENT", "ABSENT", "EXCUSED", "CANCELLED"}
+
 
 def resolve_attendance(
     workbook_plan: WorkbookPlan,
@@ -52,6 +54,21 @@ def resolve_attendance(
                     "subject_code": row.subject_code,
                     "error": (
                         f"Unknown subject (Subject Code): {row.subject_code}"
+                    ),
+                }
+            )
+            continue
+
+        status = row.status.upper()
+        if status not in VALID_ATTENDANCE_STATUSES:
+            plan.errors.append(
+                {
+                    "entity": "attendance",
+                    "roll_no": row.roll_no,
+                    "subject_code": row.subject_code,
+                    "error": (
+                        f"Invalid Status '{row.status}' - must be one of "
+                        f"{sorted(VALID_ATTENDANCE_STATUSES)}"
                     ),
                 }
             )
