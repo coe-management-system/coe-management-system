@@ -36,13 +36,23 @@ class PlannedStudent:
     year: int
     group_name: str
     database_id: int | None = None
-
-
 @dataclass
 class PlannedSubject:
     code: str
     name: str
     department_source_id: str
+    database_id: int | None = None
+
+
+
+@dataclass
+class PlannedAttendance:
+    roll_no: str
+    subject_code: str
+    session_date: str
+    status: str
+    student_id: int | None = None
+    subject_id: int | None = None
     database_id: int | None = None
 
 
@@ -53,6 +63,7 @@ class WorkbookResolutionPlan:
     groups: list[PlannedGroup] = field(default_factory=list)
     students: list[PlannedStudent] = field(default_factory=list)
     subjects: list[PlannedSubject] = field(default_factory=list)
+    attendance: list[PlannedAttendance] = field(default_factory=list)
     errors: list[dict] = field(default_factory=list)
 
     @property
@@ -74,3 +85,7 @@ class WorkbookResolutionPlan:
     @property
     def new_subjects(self):
         return [item for item in self.subjects if item.database_id is None]
+
+    @property
+    def new_attendance(self):
+        return [item for item in self.attendance if item.database_id is None]
