@@ -1,0 +1,35 @@
+{
+  "room_id": [
+    "room_id", "room id", "room"
+  ],
+  "name": [
+    "name", "room_name", "venue_name"
+  ],
+  "capacity": [
+    "capacity", "seating_capacity", "seats", "max_capacity"
+  ],
+  "building": [
+    "building", "building_name", "block"
+  ],
+  "floor": [
+    "floor", "floor_number", "level"
+  ],
+  "subject_id": [
+    "subject_id", "subject id", "subject", "course_id"
+  ],
+  "faculty_id": [
+    "faculty_id", "faculty id", "instructor_id", "teacher_id"
+  ],
+  "batch_id": [
+    "batch_id", "batch id", "batch", "class_id"
+  ],
+  "event_date": [
+    "event_date", "event date", "date", "class_date"
+  ],
+  "start_time": [
+    "start_time", "start time", "begin_time", "from_time"
+  ],
+  "end_time": [
+    "end_time", "end time", "finish_time", "to_time"
+  ]
+}

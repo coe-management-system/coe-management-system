@@ -1,0 +1,31 @@
+{
+  "roll_no": [
+    "roll no", "roll_no", "roll number", "roll_number", "roll", "rollno",
+    "registration no", "reg no", "enrollment no", "student id", "student no"
+  ],
+  "admission_id": [
+    "admission id", "admission_id", "admission no", "admission"
+  ],
+  "student_name": [
+    "student name", "student_name", "name", "full name", "student", "candidate name"
+  ],
+  "branch": [
+    "branch", "dept", "department", "stream", "course"
+  ],
+  "section": [
+    "section", "group", "section/group", "class", "division"
+  ],
+  "record_id": [
+    "addmission no", "addmission id", "record id", "record no", "serial no",
+    "sl no", "attendance id", "attendance no"
+  ],
+  "subject": [
+    "subject", "subject_id", "subject code", "subject_code", "course code"
+  ],
+  "date": [
+    "date", "session_date", "attendance_date", "class_date", "session date"
+  ],
+  "status": [
+    "attendance status", "attendance_status", "status", "attendance", "mark", "marks"
+  ]
+}

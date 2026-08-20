@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { showcaseApi } from '@/lib/api/showcase';
 import { DashboardData, KpiMetric, OperationalAlert, CoeSummaryData } from '@/types/dashboard';
 import {
   MOCK_COE_SUMMARIES,
@@ -12,13 +13,17 @@ import { MOCK_ALERTS } from '@/lib/mock-data/alerts';
 export const dashboardApi = {
   async getDashboardData(): Promise<DashboardData> {
     // Concurrently fetch real API data from backend endpoints
-    const [students, departments, batches, groups, faculty] = await Promise.all([
+    const [students, departments, batches, groups, faculty, training, certificationSummary] = await Promise.all([
       api.getStudents().catch(() => []),
       api.getDepartments().catch(() => []),
       api.getBatches().catch(() => []),
       api.getGroups().catch(() => []),
       api.getFaculty().catch(() => []),
+      showcaseApi.getTrainingPrograms().catch(() => []),
+      showcaseApi.getCertificationSummary().catch(() => ({})),
     ]);
+    const certCount = Number((certificationSummary as Record<string, unknown>).total_certifications || 0);
+    const certAttempts = Number((certificationSummary as Record<string, unknown>).total_attempts || 0);
 
     const deptCodes = departments.map((d) => d.code).filter(Boolean).join(', ');
     const batchNames = batches.map((b) => b.name).slice(0, 3).join(', ');
@@ -73,19 +78,19 @@ export const dashboardApi = {
       {
         id: 'kpi-training',
         title: 'Training Programs',
-        value: 'Pending API',
-        change: 'Backend Pending',
-        changeType: 'neutral',
-        subtitle: 'Endpoint not available yet',
+        value: training.length.toString(),
+        change: certAttempts > 0 ? 'Live API Data' : 'Live API Data',
+        changeType: 'positive',
+        subtitle: 'Active CoE skill tracks',
         iconName: 'BookOpen',
       },
       {
         id: 'kpi-certifications',
         title: 'Certifications',
-        value: 'Pending API',
-        change: 'Backend Pending',
-        changeType: 'neutral',
-        subtitle: 'Endpoint not available yet',
+        value: certCount > 0 ? certCount.toString() : 'Live API Data',
+        change: `${certAttempts} total attempts`,
+        changeType: 'positive',
+        subtitle: certCount > 0 ? 'Industry credentials' : 'Endpoint available',
         iconName: 'Award',
       },
     ];

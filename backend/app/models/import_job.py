@@ -24,6 +24,13 @@ class ImportJob(Base):
         default="student",
     )
 
+    # Optional subject code supplied at upload time for attendance sheets that
+    # do not carry a Subject column (wide-grid format).
+    subject_hint: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
     status: Mapped[str] = mapped_column(
         String(30),
         nullable=False,

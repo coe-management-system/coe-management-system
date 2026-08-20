@@ -249,7 +249,7 @@ export const api = {
   },
 
   // AUTH: GET /api/v1/auth/me
-  async getMe(token?: string): Promise<{ id: number; username: string; email: string; role_id: number }> {
+  async getMe(token?: string): Promise<{ id: number; username: string; email: string; role_id: number; role_name?: string | null }> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('coe_auth_token') : null);
     if (authToken) {
@@ -259,7 +259,7 @@ export const api = {
       method: 'GET',
       headers,
     });
-    return handleApiResponse<{ id: number; username: string; email: string; role_id: number }>(response);
+    return handleApiResponse<{ id: number; username: string; email: string; role_id: number; role_name?: string | null }>(response);
   },
 
   // GET /api/v1/students
@@ -317,8 +317,198 @@ export const api = {
   },
 
 
-  // POST /api/v1/imports (or /api/v1/imports/excel)
+  // Step 1 & 2: Upload and Validate Excel (Preview Stage)
+  async validateExcel(
+    file: File,
+    importType?: string,
+    subject?: string
+  ): Promise<{
+    import_id: number | string;
+    filename: string;
+    mapping: Record<string, string>;
+    unmapped_columns: string[];
+    ambiguous_columns: string[];
+    summary: {
+      total_rows: number;
+      valid: number;
+      invalid: number;
+      reference_errors: number;
+      existing: number;
+      duplicates: number;
+      ready_to_commit: number;
+    };
+    records: Array<Record<string, unknown>>;
+    attendance?: {
+      format?: string | null;
+      detected_type?: string | null;
+      reason?: string | null;
+      subject?: string | null;
+      subject_source?: string | null;
+      issues: Array<Record<string, unknown>>;
+    };
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (importType) {
+      formData.append('import_type', importType);
+    }
+    if (subject) {
+      formData.append('subject', subject);
+    }
 
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('coe_auth_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    const uploadResponse = await fetch(`${API_BASE_URL}/api/v1/imports`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const uploadData = await handleApiResponse<Record<string, unknown>>(uploadResponse);
+    const importId = uploadData.import_id || uploadData.import_job_id;
+
+    if (!importId) {
+      throw new ApiError(500, 'Failed to create import job');
+    }
+
+    const validateHeaders = {
+      ...headers,
+      'Content-Type': 'application/json',
+    };
+
+    const validateResponse = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/validate`, {
+      method: 'POST',
+      headers: validateHeaders,
+    });
+
+    const validateData = await handleApiResponse<Record<string, unknown>>(validateResponse);
+    const summary = (validateData.summary as Record<string, unknown>) || {};
+
+    return {
+      import_id: importId as number | string,
+      filename: String(uploadData.filename || file.name),
+      mapping: (validateData.mapping as Record<string, string>) || {},
+      unmapped_columns: (validateData.unmapped_columns as string[]) || [],
+      ambiguous_columns: (validateData.ambiguous_columns as string[]) || [],
+      summary: {
+        total_rows: Number(summary.total_rows || 0),
+        valid: Number(summary.valid || 0),
+        invalid: Number(summary.invalid || 0),
+        reference_errors: Number(summary.reference_errors || 0),
+        existing: Number(summary.existing || 0),
+        duplicates: Number(summary.duplicates || 0),
+        ready_to_commit: Number(summary.ready_to_commit || summary.valid || 0),
+      },
+      records: (validateData.records as Array<Record<string, unknown>>) || [],
+      attendance: {
+        format: (validateData.format as string | null) ?? null,
+        detected_type: (validateData.detected_type as string | null) ?? null,
+        reason: (validateData.reason as string | null) ?? null,
+        subject: (validateData.subject as string | null) ?? null,
+        subject_source: (validateData.subject_source as string | null) ?? null,
+        issues: (validateData.issues as Array<Record<string, unknown>>) || [],
+      },
+    };
+  },
+
+  // Step 3: Commit Excel (Permanent Save Stage)
+  async commitExcel(importId: number | string): Promise<{
+    import_id: number | string;
+    status: string;
+    imported_count: number;
+    attendance?: {
+      inserted: number;
+      updated: number;
+      overwritten: Array<Record<string, unknown>>;
+      excluded_events: number;
+      below_threshold_count: number;
+      below_threshold: Array<Record<string, unknown>>;
+    };
+  }> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('coe_auth_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    const commitResponse = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/commit`, {
+      method: 'POST',
+      headers,
+    });
+
+    const commitData = await handleApiResponse<Record<string, unknown>>(commitResponse);
+    const count = typeof commitData.imported_count === 'number'
+      ? commitData.imported_count
+      : (Array.isArray(commitData.imported_students) ? commitData.imported_students.length : 0);
+
+    return {
+      import_id: importId,
+      status: String(commitData.status || 'COMMITTED'),
+      imported_count: count,
+      attendance: {
+        inserted: Number(commitData.inserted || 0),
+        updated: Number(commitData.updated || 0),
+        overwritten: (commitData.overwritten as Array<Record<string, unknown>>) || [],
+        excluded_events: Number(commitData.excluded_events || 0),
+        below_threshold_count: Number(commitData.below_threshold_count || 0),
+        below_threshold: (commitData.below_threshold as Array<Record<string, unknown>>) || [],
+      },
+    };
+  },
+
+  // Download the updated attendance summary workbook for a committed import.
+  async downloadAttendanceExport(importId: number | string): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('coe_auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/attendance/export`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      throw new ApiError(response.status, `Failed to export attendance sheet (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `updated_attendance_${importId}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Fetch the detailed flagged-rows report for an attendance import.
+  async getAttendanceFlagged(importId: number | string): Promise<{
+    import_id: number | string;
+    flagged_rows: Array<Record<string, unknown>>;
+    issues: Array<Record<string, unknown>>;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/attendance/flagged`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<Record<string, unknown>>(response) as unknown as Promise<{
+      import_id: number | string;
+      flagged_rows: Array<Record<string, unknown>>;
+      issues: Array<Record<string, unknown>>;
+    }>;
+  },
+
+  // Single-pass import helper
   async importExcel(file: File): Promise<ImportResultSummary> {
     const formData = new FormData();
     formData.append('file', file);
@@ -331,14 +521,12 @@ export const api = {
       }
     }
 
-
+    // Step 1: Upload file - create import job
     let response = await fetch(`${API_BASE_URL}/api/v1/imports`, {
-
       method: 'POST',
       headers,
       body: formData,
     });
-
 
     if (response.status === 404) {
       response = await fetch(`${API_BASE_URL}/api/v1/imports/excel`, {
@@ -348,31 +536,71 @@ export const api = {
       });
     }
 
-    const data = await handleApiResponse<Record<string, unknown>>(response);
+    const uploadData = await handleApiResponse<Record<string, unknown>>(response);
+    const importId = uploadData.import_id || uploadData.import_job_id;
 
-    const importedCount = Array.isArray(data.imported_students)
-      ? data.imported_students.length
-      : Number(data.imported_students || 0);
+    if (!importId) {
+      throw new ApiError(500, 'Failed to create import job');
+    }
 
-    const skippedCount = Array.isArray(data.skipped_existing)
-      ? data.skipped_existing.length
-      : Number(data.skipped_students || 0);
-
-    return {
-      import_job_id: Number(data.import_job_id || 0),
-      import_id: String(data.import_job_id || data.import_id || 'IMP-JOB'),
-      filename: String(data.filename || file.name),
-      status: String(data.status || 'COMPLETED'),
-      total_rows: Number(data.total_rows || 0),
-      valid_rows: Number(data.valid_rows || 0),
-      invalid_rows: Number(data.invalid_rows || 0),
-      duplicate_rows: Number(data.duplicate_rows || 0),
-      imported_students: importedCount,
-      skipped_students: skippedCount,
-      validation_errors: (data.validation_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
-      reference_errors: (data.reference_errors as Array<{ row?: number; message?: string; field?: string }>) || [],
+    // Step 2: Validate import
+    const validateHeaders = {
+      ...headers,
+      'Content-Type': 'application/json',
     };
 
+    const validateResponse = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/validate`, {
+      method: 'POST',
+      headers: validateHeaders,
+    });
+
+    const validateData = await handleApiResponse<Record<string, unknown>>(validateResponse);
+
+    // Step 3: Commit import
+    const commitResponse = await fetch(`${API_BASE_URL}/api/v1/imports/${importId}/commit`, {
+      method: 'POST',
+      headers: validateHeaders,
+    });
+
+    const commitData = await handleApiResponse<Record<string, unknown>>(commitResponse);
+
+    const importedCount = typeof commitData.imported_count === 'number'
+      ? commitData.imported_count
+      : (Array.isArray(commitData.imported_students) ? commitData.imported_students.length : 0);
+
+    const summary = (validateData.summary as Record<string, unknown>) || {};
+
+    return {
+      import_job_id: Number(importId),
+      import_id: String(importId),
+      filename: String(uploadData.filename || file.name),
+      status: String(commitData.status || 'COMPLETED'),
+      total_rows: Number(summary.total_rows || 0),
+      valid_rows: Number(summary.valid || 0),
+      invalid_rows: Number(summary.invalid || 0) + Number(summary.reference_errors || 0),
+      duplicate_rows: Number(summary.duplicates || 0),
+      imported_students: importedCount,
+      skipped_students: Number(summary.existing || 0),
+      validation_errors: ((validateData.records as Array<Record<string, unknown>>) || [])
+        .filter((r) => r.category === 'INVALID')
+        .map((r) => {
+          const fe = Array.isArray(r.field_errors) ? (r.field_errors[0] as Record<string, unknown>) : undefined;
+          return {
+            row: typeof r.row === 'number' ? r.row : undefined,
+            field: typeof fe?.field === 'string' ? fe.field : 'General',
+            message: typeof fe?.error === 'string' ? fe.error : 'Invalid data',
+          };
+        }),
+      reference_errors: ((validateData.records as Array<Record<string, unknown>>) || [])
+        .filter((r) => r.category === 'REFERENCE_ERROR')
+        .flatMap((r) =>
+          ((r.reference_errors as Array<Record<string, unknown>>) || []).map((e) => ({
+            row: typeof r.row === 'number' ? r.row : undefined,
+            field: typeof e.field === 'string' ? e.field : undefined,
+            message: typeof e.message === 'string' ? e.message : undefined,
+          }))
+        ),
+    };
   },
 
   // GET /api/v1/departments

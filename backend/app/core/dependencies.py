@@ -61,6 +61,9 @@ def get_current_user(
     return user
 
 
+ADMIN_ROLE_NAME = "admin"
+
+
 def require_role(required_role: str) -> Callable:
     def role_dependency(
         current_user: User = Depends(get_current_user),
@@ -70,7 +73,14 @@ def require_role(required_role: str) -> Callable:
             select(Role).where(Role.id == current_user.role_id)
         )
 
-        if role is None or role.name != required_role:
+        if role is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+
+        # The admin role is a superuser: it satisfies any role requirement.
+        if role.name != required_role and role.name != ADMIN_ROLE_NAME:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",

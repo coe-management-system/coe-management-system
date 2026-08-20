@@ -48,3 +48,14 @@ class AttendanceSummary(BaseModel):
     attended_sessions: int
     eligible_sessions: int
     attendance_percentage: float
+
+
+class AttendanceOverviewItem(BaseModel):
+    student_id: int
+    roll_no: str
+    name: str
+    department: str
+    batch: str
+    total_classes: int
+    attended: int
+    percentage: float

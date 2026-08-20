@@ -1,33 +1,32 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Search, Award, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
-
-interface CertificationRecord {
-  id: string;
-  name: string;
-  studentName: string;
-  rollNo: string;
-  issuingBody: string;
-  credentialId: string;
-  issueDate: string;
-  status: 'Verified' | 'Pending' | 'Audit Flagged';
-}
-
-const INITIAL_CERTS: CertificationRecord[] = [
-  { id: '1', name: 'AWS Certified Solutions Architect – Associate', studentName: 'Aarav Sharma', rollNo: '2026-CSE-001', issuingBody: 'Amazon Web Services', credentialId: 'AWS-ASA-2026-891', issueDate: '2026-01-15', status: 'Verified' },
-  { id: '2', name: 'NVIDIA Certified Associate – Generative AI', studentName: 'Rohan Gupta', rollNo: '2026-ECE-005', issuingBody: 'NVIDIA Academy', credentialId: 'NV-AI-7712-09', issueDate: '2026-02-10', status: 'Verified' },
-  { id: '3', name: 'Cadence Certified VLSI Design Specialist', studentName: 'Priya Nair', rollNo: '2026-ME-012', issuingBody: 'Cadence Design Systems', credentialId: 'CAD-VLSI-4421', issueDate: '2025-11-20', status: 'Verified' },
-  { id: '4', name: 'TensorFlow Developer Certificate', studentName: 'Vikram Singh', rollNo: '2026-EE-008', issuingBody: 'Google Developers', credentialId: 'TF-DEV-9901', issueDate: '2026-03-01', status: 'Pending' },
-];
+import { Search, Award, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { showcaseApi, ShowcaseCertification } from '@/lib/api/showcase';
 
 export default function CertificationPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [certs, setCerts] = useState<ShowcaseCertification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCerts = INITIAL_CERTS.filter((cert) => {
+  useEffect(() => {
+    const fetchCerts = async () => {
+      try {
+        const data = await showcaseApi.getCertifications();
+        setCerts(data);
+      } catch (err) {
+        console.error('Failed to load live certification data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCerts();
+  }, []);
+
+  const filteredCerts = certs.filter((cert) => {
     const matchesSearch =
       cert.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cert.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -45,12 +44,11 @@ export default function CertificationPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Certification' }]}
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      {/* Live API Indicator */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
         <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Certification API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/certification</code>) is pending backend implementation. Operating in client-side preview mode.
+          <span className="font-bold">Live API Data: </span>
+          <code className="bg-emerald-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/certifications</code> connected. Showing {loading ? '...' : certs.length} credential records.
         </div>
       </div>
 
@@ -62,7 +60,7 @@ export default function CertificationPage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Total Issued Credentials</div>
-            <div className="text-xl font-bold text-slate-900">{INITIAL_CERTS.length} Records</div>
+            <div className="text-xl font-bold text-slate-900">{certs.length} Records</div>
           </div>
         </div>
 
@@ -73,7 +71,7 @@ export default function CertificationPage() {
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Verified Credentials</div>
             <div className="text-xl font-bold text-emerald-600">
-              {INITIAL_CERTS.filter((c) => c.status === 'Verified').length} Verified
+              {certs.filter((c) => c.status === 'Verified').length} Verified
             </div>
           </div>
         </div>

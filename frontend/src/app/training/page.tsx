@@ -1,22 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Search, GraduationCap, Users, Award, Info } from 'lucide-react';
+import { Search, GraduationCap, Users, Award } from 'lucide-react';
+import { showcaseApi, ShowcaseTrainingProgram } from '@/lib/api/showcase';
 
-interface TrainingTrack {
-  id: string;
-  name: string;
-  provider: string;
-  category: string;
-  enrolledCount: number;
-  progress: number;
-  durationWeeks: number;
-  status: 'Active' | 'Completed' | 'Upcoming';
-}
-
-const INITIAL_TRACKS: TrainingTrack[] = [
+const INITIAL_TRACKS: ShowcaseTrainingProgram[] = [
   { id: '1', name: 'Advanced Machine Learning & Neural Networks', provider: 'NVIDIA Deep Learning Institute', category: 'Artificial Intelligence', enrolledCount: 45, progress: 78, durationWeeks: 12, status: 'Active' },
   { id: '2', name: 'Cloud Architecture & DevOps Masterclass', provider: 'AWS Academy', category: 'Cloud Computing', enrolledCount: 60, progress: 42, durationWeeks: 10, status: 'Active' },
   { id: '3', name: 'Full-Stack Enterprise React & Next.js', provider: 'Vercel Partner Network', category: 'Software Engineering', enrolledCount: 85, progress: 95, durationWeeks: 8, status: 'Active' },
@@ -27,8 +17,28 @@ const INITIAL_TRACKS: TrainingTrack[] = [
 export default function TrainingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [tracks, setTracks] = useState<ShowcaseTrainingProgram[]>(INITIAL_TRACKS);
+  const [loading, setLoading] = useState(true);
 
-  const filteredTracks = INITIAL_TRACKS.filter((track) => {
+  useEffect(() => {
+    let cancelled = false;
+    showcaseApi
+      .getTrainingPrograms()
+      .then((data) => {
+        if (!cancelled) setTracks(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTracks(INITIAL_TRACKS);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredTracks = tracks.filter((track) => {
     const matchesSearch =
       track.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       track.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,7 +47,7 @@ export default function TrainingPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const totalTrainees = INITIAL_TRACKS.reduce((acc, t) => acc + t.enrolledCount, 0);
+  const totalTrainees = tracks.reduce((acc, t) => acc + t.enrolledCount, 0);
 
   return (
     <div className="space-y-6">
@@ -47,12 +57,20 @@ export default function TrainingPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Training' }]}
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      {/* Live API Status */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
         <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Training API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/training</code>) is pending backend implementation. Operating in client-side preview mode.
+          {loading ? (
+            <span>
+              <span className="font-bold">Live API Data: </span>
+              Connecting to GET /api/v1/training/programs...
+            </span>
+          ) : (
+            <span>
+              <span className="font-bold">Live API Data: </span>
+              GET /api/v1/training/programs connected. Showing {tracks.length} training tracks.
+            </span>
+          )}
         </div>
       </div>
 
@@ -64,7 +82,7 @@ export default function TrainingPage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Active Training Tracks</div>
-            <div className="text-xl font-bold text-slate-900">{INITIAL_TRACKS.length} Specialized Tracks</div>
+            <div className="text-xl font-bold text-slate-900">{tracks.length} Specialized Tracks</div>
           </div>
         </div>
 

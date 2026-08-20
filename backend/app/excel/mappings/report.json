@@ -1,0 +1,29 @@
+{
+  "id": [
+    "id", "report_id", "report id"
+  ],
+  "student_id": [
+    "student_id", "student id", "student", "admission_id"
+  ],
+  "title": [
+    "title", "report_title", "subject", "topic"
+  ],
+  "due_at": [
+    "due_at", "due date", "due_date", "deadline", "submission_date"
+  ],
+  "status": [
+    "status", "report_status", "state"
+  ],
+  "description": [
+    "description", "details", "content", "summary"
+  ],
+  "report_type": [
+    "report_type", "type", "category"
+  ],
+  "submitted_at": [
+    "submitted_at", "submitted date", "submission_date", "submitted_on"
+  ],
+  "reviewed_by": [
+    "reviewed_by", "reviewer", "reviewed by", "approved_by"
+  ]
+}

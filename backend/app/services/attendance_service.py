@@ -2,8 +2,33 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.attendance import Attendance
+from app.models.batch import Batch
+from app.models.department import Department
 from app.models.student import Student
 from typing import Any, List, Dict
+
+PRESENT_WORDS = {"p", "present"}
+ABSENT_WORDS = {"a", "absent"}
+
+
+def normalize_status(status: str) -> str:
+    """Map a stored attendance status to a canonical value.
+
+    Handles legacy raw marks ('P', 'A', 'Present') stored before canonical
+    statuses were enforced, so historical data still calculates correctly.
+    """
+    norm = str(status or "").strip().lower()
+    if norm in PRESENT_WORDS:
+        return "PRESENT"
+    if norm in ABSENT_WORDS:
+        return "ABSENT"
+    return norm.upper()
+
+
+def is_eligible_status(status: str) -> bool:
+    """Statuses that count towards 'Total Classes Held' (the denominator)."""
+    return normalize_status(status) in {"PRESENT", "ABSENT"}
+
 
 class AttendanceService:
     def __init__(self, db: Session):
@@ -34,7 +59,7 @@ class AttendanceService:
             student_id=student_id,
             subject_id=subject_id,
             session_date=session_date,
-            status=status,
+            status=normalize_status(status),
         )
 
         self.db.add(attendance)
@@ -86,7 +111,7 @@ class AttendanceService:
                 student_id=record["student_id"],
                 subject_id=subject_id,
                 session_date=session_date,
-                status=record["status"],
+                status=normalize_status(record["status"]),
             )
             for record in records
         ]
@@ -119,7 +144,7 @@ class AttendanceService:
         eligible_records = [
             record
             for record in records
-            if record.status in {"PRESENT", "ABSENT"}
+            if is_eligible_status(record.status)
         ]
 
         if not eligible_records:
@@ -128,7 +153,7 @@ class AttendanceService:
         attended = sum(
             1
             for record in eligible_records
-            if record.status == "PRESENT"
+            if normalize_status(record.status) == "PRESENT"
         )
 
         return round(
@@ -187,13 +212,13 @@ class AttendanceService:
         eligible_sessions = sum(
             1
             for record in records
-            if record.status in {"PRESENT", "ABSENT"}
+            if is_eligible_status(record.status)
         )
 
         attended_sessions = sum(
             1
             for record in records
-            if record.status == "PRESENT"
+            if normalize_status(record.status) == "PRESENT"
         )
         percentage = self.calculate_percentage(
             student_id=student_id,
@@ -206,6 +231,56 @@ class AttendanceService:
             "eligible_sessions": eligible_sessions,
             "attendance_percentage": percentage,
         }
+
+    def get_overview(
+        self,
+        limit: int = 50,
+    ) -> list[dict]:
+        students = self.db.scalars(
+            select(Student).limit(limit)
+        ).all()
+
+        results = []
+
+        for student in students:
+            total_attended = 0
+            total_eligible = 0
+
+            subjects = self.db.scalars(
+                select(Attendance.subject_id)
+                .where(Attendance.student_id == student.id)
+                .distinct()
+            ).all()
+
+            for subject_id in subjects:
+                summary = self.get_summary(
+                    student_id=student.id,
+                    subject_id=subject_id,
+                )
+                total_attended += summary["attended_sessions"]
+                total_eligible += summary["eligible_sessions"]
+
+            percentage = (
+                round((total_attended / total_eligible) * 100, 2)
+                if total_eligible > 0
+                else 0.0
+            )
+
+            department = self.db.get(Department, student.department_id)
+            batch = self.db.get(Batch, student.batch_id)
+
+            results.append({
+                "student_id": student.id,
+                "roll_no": student.roll_no,
+                "name": student.name,
+                "department": department.name if department else "",
+                "batch": batch.name if batch else "",
+                "total_classes": total_eligible,
+                "attended": total_attended,
+                "percentage": percentage,
+            })
+
+        return results
 
     def get_student_attendance(
         self,

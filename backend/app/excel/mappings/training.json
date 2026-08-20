@@ -1,0 +1,32 @@
+{
+  "coe_id": [
+    "coe_id", "coe id", "center of excellence id"
+  ],
+  "name": [
+    "name", "training_name", "program_name"
+  ],
+  "status": [
+    "status", "training_status", "program_status"
+  ],
+  "description": [
+    "description", "details", "summary"
+  ],
+  "start_date": [
+    "start_date", "start date", "begin_date"
+  ],
+  "end_date": [
+    "end_date", "end date", "finish_date"
+  ],
+  "planned_hours": [
+    "planned_hours", "planned hours", "hours", "duration"
+  ],
+  "company_id": [
+    "company_id", "company id", "company"
+  ],
+  "technology_id": [
+    "technology_id", "technology id", "technology"
+  ],
+  "faculty_id": [
+    "faculty_id", "faculty id", "instructor_id"
+  ]
+}

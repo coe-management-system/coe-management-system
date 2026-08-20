@@ -1,14 +1,25 @@
-﻿from pathlib import Path
+import io
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import openpyxl
+import pandas as pd
 
 from app.core.database import get_db
 from app.core.dependencies import require_role
 from app.models.user import User
-from app.excel.reader import read_excel
+from app.excel.reader import read_excel, get_sheet_names
 from app.excel.detector import detect_columns
 from app.excel.schema_detector import detect_import_type
 from app.schemas.import_schema import (
@@ -18,6 +29,10 @@ from app.schemas.import_schema import (
     CommitImportResponse,
 )
 from app.services.import_service import ImportService
+from app.services.attendance_import_service import (
+    AttendanceImportService,
+    AttendanceValidationError,
+)
 
 
 router = APIRouter(
@@ -27,17 +42,36 @@ router = APIRouter(
 
 faculty_required = require_role("faculty")
 
-ALLOWED_EXTENSIONS = {".xlsx", ".xls"}
+ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
 ALLOWED_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
     "application/octet-stream",
+    "text/csv",
+    "application/csv",
 }
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 AUTO_DETECT_CONFIDENCE_THRESHOLD = 0.7
 
 
 def _validate_workbook_readable(file_path: str) -> None:
+    if Path(file_path).suffix.lower() == ".csv":
+        try:
+            df = pd.read_csv(file_path, nrows=2, dtype=object)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded CSV file could not be read",
+            ) from exc
+        if df.empty or df.columns.size == 0 or all(
+            (v is None or v == "") for v in df.iloc[0].tolist()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded CSV file appears to be empty (no header row found)",
+            )
+        return
+
     try:
         workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
     except Exception as exc:
@@ -88,6 +122,7 @@ def _validate_workbook_readable(file_path: str) -> None:
 def create_import(
     file: UploadFile = File(...),
     import_type: str | None = None,
+    subject: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(faculty_required),
 ):
@@ -102,6 +137,9 @@ def create_import(
     is only trusted above AUTO_DETECT_CONFIDENCE_THRESHOLD; below that,
     the caller must specify import_type explicitly rather than have the
     system silently guess.
+
+    `subject` is optional and used only for attendance sheets (wide-grid
+    format) that do not carry a Subject column of their own.
     """
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
@@ -110,7 +148,7 @@ def create_import(
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only Excel files (.xlsx, .xls) are supported",
+            detail="Only Excel files (.xlsx, .xls) and CSV (.csv) are supported",
         )
 
     if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
@@ -142,9 +180,11 @@ def create_import(
         detected_confidence = None
 
         if import_type is None:
-            df = read_excel(temporary_path)
+            sheets = get_sheet_names(temporary_path)
+            sheet_name = sheets[0] if sheets else None
+            df = read_excel(temporary_path, sheet_name=sheet_name)
             excel_columns = detect_columns(df)
-            detection = detect_import_type(excel_columns)
+            detection = detect_import_type(excel_columns, filename=file.filename, sheet_name=sheet_name)
             detected_type = detection["detected_type"]
             detected_confidence = detection["confidence"]
 
@@ -154,16 +194,22 @@ def create_import(
                     detail=(
                         "Could not confidently auto-detect import_type from the workbook's "
                         f"columns (best guess: {detected_type}, confidence: {detected_confidence}). "
-                        "Please specify import_type explicitly (student or department)."
+                        "Please specify import_type explicitly (student, department or attendance)."
                     ),
                 )
 
             import_type = detected_type
 
-        if import_type not in ("student", "department"):
+        SUPPORTED_IMPORT_TYPES = (
+            "student", "department", "attendance", "training",
+            "certification", "certification_attempts", "timetable", "workload", "report",
+            "lab", "project",
+        )
+
+        if import_type not in SUPPORTED_IMPORT_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported import_type: {import_type}",
+                detail=f"Unsupported import_type: {import_type}. Supported types: {', '.join(SUPPORTED_IMPORT_TYPES)}",
             )
 
         import_job = ImportService.create_import(
@@ -172,6 +218,7 @@ def create_import(
             filename=file.filename,
             created_by=current_user.id,
             import_type=import_type,
+            subject_hint=subject,
         )
 
         return ImportCreateResponse(
@@ -297,6 +344,8 @@ def validate_import(
 
     try:
         result = ImportService.validate_import_dispatch(db, import_job)
+    except AttendanceValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except Exception as exc:
@@ -345,3 +394,50 @@ def commit_import(
         ) from exc
 
     return CommitImportResponse(**result)
+
+
+@router.get("/{import_id}/attendance/flagged")
+def get_attendance_flagged_rows(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    """Detailed flagged-rows report for an attendance import (unmatched
+    students/subjects, bad dates, sentinel IDs, invalid marks, etc.)."""
+    import_job = ImportService.get_import(db, import_id)
+    if import_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
+    if import_job.import_type != "attendance":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import is not an attendance import",
+        )
+    if not import_job.validation_result:
+        return {"import_id": import_job.id, "flagged_rows": [], "issues": []}
+    return AttendanceImportService.list_flagged(db, import_job)
+
+
+@router.get("/{import_id}/attendance/export")
+def export_attendance_sheet(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    """Download the updated attendance summary (.xlsx) with below-threshold
+    students highlighted."""
+    import_job = ImportService.get_import(db, import_id)
+    if import_job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found")
+    if import_job.import_type != "attendance":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import is not an attendance import",
+        )
+
+    content = AttendanceImportService.build_export(db, import_job)
+    filename = f"updated_attendance_{import_job.id}.xlsx"
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

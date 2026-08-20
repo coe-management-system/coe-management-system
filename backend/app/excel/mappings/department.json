@@ -1,0 +1,11 @@
+{
+  "code": [
+    "code", "dept code", "department code", "dept_code", "department_id", "dept_id", "dept"
+  ],
+  "name": [
+    "name", "department name", "department_name", "dept name", "dept_name", "department"
+  ],
+  "status": [
+    "status", "state", "active"
+  ]
+}

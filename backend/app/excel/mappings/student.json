@@ -1,0 +1,28 @@
+{
+  "roll_no": [
+    "roll_no", "roll no", "roll number", "roll_number",
+    "reg_no", "registration no", "registration number",
+    "admission id", "admission_id", "student id", "student_id",
+    "roll", "rollno", "id", "student_no"
+  ],
+  "name": [
+    "name", "student name", "student_name", "full name", "full_name",
+    "student", "candidate_name", "candidate"
+  ],
+  "email": [
+    "email", "email id", "email_id", "student email", "student_email",
+    "mail", "mail_id", "email_address"
+  ],
+  "department": [
+    "department", "dept", "branch", "department name", "department_name",
+    "dept_name", "department code", "dept_code", "course", "stream"
+  ],
+  "batch": [
+    "batch", "year", "academic year", "academic_year", "batch_name",
+    "graduation_year", "joining_year", "batch_year"
+  ],
+  "group": [
+    "group", "section", "class", "section name", "section_name",
+    "group_name", "division"
+  ]
+}

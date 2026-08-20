@@ -1,0 +1,23 @@
+{
+  "company_id": [
+    "company_id", "company id", "company", "organization_id"
+  ],
+  "name": [
+    "name", "certification_name", "cert_name"
+  ],
+  "validity_period_months": [
+    "validity_period_months", "validity months", "validity", "duration_months"
+  ],
+  "cost": [
+    "cost", "price", "fee", "amount"
+  ],
+  "issuing_organization": [
+    "issuing_organization", "issuing org", "issuer", "organization"
+  ],
+  "issue_date": [
+    "issue_date", "issue date", "start_date", "start date"
+  ],
+  "expiry_date": [
+    "expiry_date", "expiry date", "end_date", "end date"
+  ]
+}

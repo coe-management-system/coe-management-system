@@ -1,9 +1,9 @@
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Date, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from sqlalchemy import DateTime, func
-from datetime import datetime
+from datetime import datetime, date
 
 class Student(Base):
     __tablename__ = "students"
@@ -14,6 +14,13 @@ class Student(Base):
         String(50),
         unique=True,
         nullable=False,
+        index=True,
+    )
+
+    admission_id: Mapped[str | None] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=True,
         index=True,
     )
 
@@ -41,6 +48,47 @@ class Student(Base):
     group_id: Mapped[int] = mapped_column(
         ForeignKey("groups.id"),
         nullable=False,
+    )
+
+    # Denormalised attendance aggregates on the student master record.
+    # Recomputed after every attendance import so totals are always consistent
+    # with the per-event `attendance` table (idempotent by construction).
+    total_classes_held: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    total_present: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    total_absent: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    attendance_percentage: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=0.0,
+        server_default="0",
+    )
+
+    attendance_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    attendance_source_file: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

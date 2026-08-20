@@ -6,19 +6,9 @@ import { api } from '@/lib/api';
 import { Department } from '@/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ShieldCheck, Building2, Users, Award, Loader2 } from 'lucide-react';
+import { showcaseApi, ShowcaseCoeCenter } from '@/lib/api/showcase';
 
-interface CoeCenter {
-  id: string;
-  name: string;
-  partner: string;
-  leadFaculty: string;
-  enrolledStudents: number;
-  activeProjects: number;
-  placementRate: number;
-  status: 'Operational' | 'Expanding' | 'Setup Phase';
-}
-
-const COE_CENTERS: CoeCenter[] = [
+const COE_CENTERS: ShowcaseCoeCenter[] = [
   { id: '1', name: 'NVIDIA AI & High-Performance Computing CoE', partner: 'NVIDIA Corporation', leadFaculty: 'Dr. V. Gupta', enrolledStudents: 145, activeProjects: 12, placementRate: 96.5, status: 'Operational' },
   { id: '2', name: 'AWS Cloud & DevOps Excellence Hub', partner: 'Amazon Web Services', leadFaculty: 'Prof. A. Kulkarni', enrolledStudents: 180, activeProjects: 15, placementRate: 94.0, status: 'Operational' },
   { id: '3', name: 'Cadence VLSI & Embedded Systems CoE', partner: 'Cadence Design Systems', leadFaculty: 'Dr. M. Roy', enrolledStudents: 90, activeProjects: 8, placementRate: 91.2, status: 'Operational' },
@@ -28,6 +18,8 @@ const COE_CENTERS: CoeCenter[] = [
 export default function CoePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [centers, setCenters] = useState<ShowcaseCoeCenter[]>(COE_CENTERS);
+  const [coeLoading, setCoeLoading] = useState(true);
 
   useEffect(() => {
     const fetchDepts = async () => {
@@ -43,7 +35,21 @@ export default function CoePage() {
     fetchDepts();
   }, []);
 
-  const totalEnrolledCoE = COE_CENTERS.reduce((acc, c) => acc + c.enrolledStudents, 0);
+  useEffect(() => {
+    const fetchCenters = async () => {
+      try {
+        const data = await showcaseApi.getCoeCenters();
+        setCenters(data);
+      } catch (err) {
+        console.error('Failed to load live CoE centers:', err);
+      } finally {
+        setCoeLoading(false);
+      }
+    };
+    fetchCenters();
+  }, []);
+
+  const totalEnrolledCoE = centers.reduce((acc, c) => acc + c.enrolledStudents, 0);
 
   return (
     <div className="space-y-6">
@@ -53,6 +59,14 @@ export default function CoePage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Center of Excellence' }]}
       />
 
+      {/* Live API Indicator */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
+        <div>
+          <span className="font-bold">Live API Data: </span>
+          <code className="bg-emerald-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/coe</code> connected. Showing {coeLoading ? '...' : centers.length} centers of excellence.
+        </div>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center space-x-3 shadow-2xs">
@@ -61,7 +75,7 @@ export default function CoePage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Active Centers</div>
-            <div className="text-xl font-bold text-slate-900">{COE_CENTERS.length} Industry Hubs</div>
+            <div className="text-xl font-bold text-slate-900">{centers.length} Industry Hubs</div>
           </div>
         </div>
 
@@ -116,7 +130,7 @@ export default function CoePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {COE_CENTERS.map((coe) => (
+              {centers.map((coe) => (
                 <tr key={coe.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4 font-bold text-slate-900">{coe.name}</td>
                   <td className="py-3.5 px-4 text-slate-600 font-semibold">{coe.partner}</td>

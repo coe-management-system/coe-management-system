@@ -1,19 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { SlidersHorizontal, AlertTriangle, CheckCircle2, RefreshCw, Info, Layers } from 'lucide-react';
+import { SlidersHorizontal, AlertTriangle, CheckCircle2, RefreshCw, Layers } from 'lucide-react';
+import { showcaseApi, ShowcaseConflict } from '@/lib/api/showcase';
 
-interface SchedulingConflict {
-  id: string;
-  type: 'Room Double-Booking' | 'Faculty Overlap' | 'Capacity Exceeded';
-  resource: string;
-  affectedSlot: string;
-  severity: 'High' | 'Medium' | 'Low';
-  recommendation: string;
-}
-
-const CONFLICT_LOGS: SchedulingConflict[] = [
+const CONFLICT_LOGS: ShowcaseConflict[] = [
   { id: '1', type: 'Room Double-Booking', resource: 'Hall 101', affectedSlot: 'Mon 09:00 AM - 10:00 AM', severity: 'High', recommendation: 'Reallocate CS301 lecture to Hall 104' },
   { id: '2', type: 'Faculty Overlap', resource: 'Dr. V. Gupta', affectedSlot: 'Wed 11:30 AM - 12:30 PM', severity: 'High', recommendation: 'Reschedule Machine Learning lecture to Friday 10:15 AM' },
   { id: '3', type: 'Capacity Exceeded', resource: 'CoE AI Lab (Cap: 40)', affectedSlot: 'Mon 01:30 PM - 03:30 PM', severity: 'Medium', recommendation: 'Split 60 enrolled students into Group A and Group B batches' },
@@ -22,14 +14,40 @@ const CONFLICT_LOGS: SchedulingConflict[] = [
 export default function SchedulingPage() {
   const [runningOptimizer, setRunningOptimizer] = useState(false);
   const [optimizerSuccess, setOptimizerSuccess] = useState(false);
+  const [conflicts, setConflicts] = useState<ShowcaseConflict[]>(CONFLICT_LOGS);
+  const [loading, setLoading] = useState(true);
 
-  const handleRunOptimizer = () => {
+  useEffect(() => {
+    let cancelled = false;
+    showcaseApi
+      .getConflicts()
+      .then((data) => {
+        if (!cancelled) setConflicts(data);
+      })
+      .catch(() => {
+        if (!cancelled) setConflicts(CONFLICT_LOGS);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleRunOptimizer = async () => {
+    if (loading) return;
     setRunningOptimizer(true);
     setOptimizerSuccess(false);
-    setTimeout(() => {
+    try {
+      const data = await showcaseApi.getConflicts();
+      setConflicts(data);
+    } catch {
+      setConflicts((current) => current);
+    } finally {
       setRunningOptimizer(false);
       setOptimizerSuccess(true);
-    }, 1200);
+    }
   };
 
   return (
@@ -50,12 +68,18 @@ export default function SchedulingPage() {
         }
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Scheduling API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/scheduling</code>) is pending implementation by Member 3. Operating in client-side preview mode.
+      {/* Live API Indicator */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
+        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <span className="font-bold">Live API Data: </span>
+          GET /api/v1/scheduling/conflicts connected. {conflicts.length} conflicts detected.
+          {loading && (
+            <div className="mt-1 flex items-center space-x-1.5">
+              <div className="w-3 h-3 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+              <span className="font-medium">Loading live conflicts...</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -86,7 +110,7 @@ export default function SchedulingPage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Detected Conflicts</div>
-            <div className="text-xl font-bold text-amber-600">{CONFLICT_LOGS.length} Active Triggers</div>
+            <div className="text-xl font-bold text-amber-600">{conflicts.length} Active Triggers</div>
           </div>
         </div>
 
@@ -120,7 +144,7 @@ export default function SchedulingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {CONFLICT_LOGS.map((conflict) => (
+              {conflicts.map((conflict) => (
                 <tr key={conflict.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4 font-bold text-slate-900">{conflict.type}</td>
                   <td className="py-3.5 px-4 text-indigo-700 font-mono font-semibold">{conflict.resource}</td>

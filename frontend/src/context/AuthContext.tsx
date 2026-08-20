@@ -9,7 +9,15 @@ export interface UserProfile {
   username: string;
   email: string;
   role_id: number;
+  role_name?: string | null;
   role?: string;
+}
+
+function resolveRoleName(me: { role_id: number; role_name?: string | null }): string {
+  if (me.role_name) {
+    return me.role_name.charAt(0).toUpperCase() + me.role_name.slice(1);
+  }
+  return me.role_id === 1 ? 'Admin' : me.role_id === 2 ? 'Faculty' : 'Student';
 }
 
 interface AuthContextType {
@@ -76,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const me = await api.getMe(storedToken);
             if (me) {
-              const roleName = me.role_id === 1 ? 'Admin' : me.role_id === 2 ? 'Faculty' : 'Student';
+              const roleName = resolveRoleName(me);
               const fullUser: UserProfile = { ...me, role: roleName };
               setUser(fullUser);
               localStorage.setItem('coe_user', JSON.stringify(fullUser));
@@ -118,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch user profile
       const me = await api.getMe(res.access_token);
-      const roleName = me.role_id === 1 ? 'Admin' : me.role_id === 2 ? 'Faculty' : 'Student';
+      const roleName = resolveRoleName(me);
       const fullUser: UserProfile = { ...me, role: roleName };
 
       setUser(fullUser);

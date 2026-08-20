@@ -1,0 +1,26 @@
+{
+  "id": [
+    "id", "session_id", "lab_session_id"
+  ],
+  "student_id": [
+    "student_id", "student id", "student", "admission_id"
+  ],
+  "lab_id": [
+    "lab_id", "lab id", "lab", "laboratory_id"
+  ],
+  "system_id": [
+    "system_id", "system id", "computer_id", "pc_id"
+  ],
+  "login_at": [
+    "login_at", "login time", "login_time", "start_time", "logged_in"
+  ],
+  "logout_at": [
+    "logout_at", "logout time", "logout_time", "end_time", "logged_out"
+  ],
+  "duration": [
+    "duration", "session_duration", "minutes", "hours"
+  ],
+  "activity_type": [
+    "activity_type", "activity", "task_type", "work_type"
+  ]
+}

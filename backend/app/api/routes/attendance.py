@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.attendance import (
     AttendanceBulkCreate,
     AttendanceCreate,
+    AttendanceOverviewItem,
     AttendanceResponse,
     AttendanceSummary,
 )
@@ -78,6 +79,20 @@ def bulk_record_attendance(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         )
+
+
+@router.get(
+    "/overview",
+    response_model=list[AttendanceOverviewItem],
+)
+def get_attendance_overview(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(faculty_required),
+):
+    service = AttendanceService(db)
+
+    return service.get_overview(limit=limit)
 
 
 @router.get(

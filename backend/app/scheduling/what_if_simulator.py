@@ -168,8 +168,8 @@ def _simulate_unavailability_scenario(events, scenario, capacities, hard_capacit
     resource = scenario["resource"]
     window = {
         "date": _normalize_date(scenario["date"]),
-        "start_time": scenario["start_time"],
-        "end_time": scenario["end_time"],
+        "start_time": scenario["start_time"] or "00:00",
+        "end_time": scenario["end_time"] or "23:59",
     }
 
     affected_events = _find_affected_events(events, scenario_type, resource, window)

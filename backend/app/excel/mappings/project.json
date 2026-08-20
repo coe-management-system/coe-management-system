@@ -1,0 +1,32 @@
+{
+  "id": [
+    "id", "project_id", "project id"
+  ],
+  "student_id": [
+    "student_id", "student id", "student", "admission_id"
+  ],
+  "title": [
+    "title", "project_title", "project_name", "name"
+  ],
+  "description": [
+    "description", "details", "summary", "abstract"
+  ],
+  "status": [
+    "status", "project_status", "state", "phase"
+  ],
+  "project_type": [
+    "project_type", "type", "category", "domain"
+  ],
+  "start_date": [
+    "start_date", "start date", "begin_date"
+  ],
+  "end_date": [
+    "end_date", "end date", "finish_date", "deadline"
+  ],
+  "mentor_id": [
+    "mentor_id", "mentor id", "supervisor_id", "guide_id"
+  ],
+  "team_members": [
+    "team_members", "team", "members", "collaborators"
+  ]
+}

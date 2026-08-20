@@ -1,0 +1,29 @@
+{
+  "allocation_id": [
+    "allocation id", "allocation_id", "allocation", "id"
+  ],
+  "faculty": [
+    "faculty", "faculty_name", "instructor", "teacher", "faculty_id"
+  ],
+  "type": [
+    "type", "work_type", "activity_type", "allocation_type"
+  ],
+  "work_date": [
+    "work date", "work_date", "date", "activity_date"
+  ],
+  "start": [
+    "start", "start_time", "start time", "from_time"
+  ],
+  "end": [
+    "end", "end_time", "end time", "to_time"
+  ],
+  "hours": [
+    "hours", "duration", "allocated_hours", "work_hours"
+  ],
+  "source": [
+    "source", "source_type", "allocation_source"
+  ],
+  "subject_id": [
+    "subject_id", "subject id", "subject", "course_id"
+  ]
+}

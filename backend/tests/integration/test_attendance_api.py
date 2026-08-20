@@ -47,6 +47,16 @@ def override_admin_user():
     )
 
 
+def override_student_user():
+    return User(
+        id=3,
+        username="student",
+        email="student@coe.local",
+        password_hash="not-used",
+        role_id=3,
+    )
+
+
 def test_record_attendance_requires_authentication():
     app.dependency_overrides[get_db] = override_get_db
 
@@ -107,15 +117,15 @@ def test_record_attendance_rejects_non_faculty():
     db = MagicMock()
 
     db.scalar.return_value = Role(
-        id=1,
-        name="admin",
+        id=3,
+        name="student",
     )
 
     def override_db():
         yield db
 
     app.dependency_overrides[get_db] = override_db
-    app.dependency_overrides[get_current_user] = override_admin_user
+    app.dependency_overrides[get_current_user] = override_student_user
 
     response = client.post(
         "/api/v1/attendance",

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Clock, MapPin, Info, Filter } from 'lucide-react';
+import { Clock, MapPin, Filter } from 'lucide-react';
+import { showcaseApi, type ShowcaseTimetableEvent } from '@/lib/api/showcase';
 
 interface TimeSlot {
   time: string;
@@ -13,44 +14,61 @@ interface TimeSlot {
   friday?: { subject: string; code: string; room: string; faculty: string };
 }
 
-const TIMETABLE_SLOTS: TimeSlot[] = [
-  {
-    time: '09:00 AM - 10:00 AM',
-    monday: { subject: 'Data Structures & Algorithms', code: 'CS301', room: 'Hall 101', faculty: 'Dr. S. Ramanujan' },
-    tuesday: { subject: 'Database Management Systems', code: 'CS302', room: 'Lab 2', faculty: 'Prof. A. Kulkarni' },
-    wednesday: { subject: 'Operating Systems Architecture', code: 'CS303', room: 'Hall 102', faculty: 'Dr. M. Roy' },
-    thursday: { subject: 'Computer Networks & Protocols', code: 'CS304', room: 'Lab 4', faculty: 'Dr. P. Sharma' },
-    friday: { subject: 'Machine Learning Fundamentals', code: 'CS305', room: 'CoE AI Lab', faculty: 'Dr. V. Gupta' },
-  },
-  {
-    time: '10:15 AM - 11:15 AM',
-    monday: { subject: 'Computer Networks & Protocols', code: 'CS304', room: 'Lab 4', faculty: 'Dr. P. Sharma' },
-    tuesday: { subject: 'Data Structures & Algorithms', code: 'CS301', room: 'Hall 101', faculty: 'Dr. S. Ramanujan' },
-    wednesday: { subject: 'Machine Learning Fundamentals', code: 'CS305', room: 'CoE AI Lab', faculty: 'Dr. V. Gupta' },
-    thursday: { subject: 'Operating Systems Architecture', code: 'CS303', room: 'Hall 102', faculty: 'Dr. M. Roy' },
-    friday: { subject: 'Database Management Systems', code: 'CS302', room: 'Lab 2', faculty: 'Prof. A. Kulkarni' },
-  },
-  {
-    time: '11:30 AM - 12:30 PM',
-    monday: { subject: 'Machine Learning Fundamentals', code: 'CS305', room: 'CoE AI Lab', faculty: 'Dr. V. Gupta' },
-    tuesday: { subject: 'Operating Systems Architecture', code: 'CS303', room: 'Hall 102', faculty: 'Dr. M. Roy' },
-    wednesday: { subject: 'Database Management Systems', code: 'CS302', room: 'Lab 2', faculty: 'Prof. A. Kulkarni' },
-    thursday: { subject: 'Data Structures & Algorithms', code: 'CS301', room: 'Hall 101', faculty: 'Dr. S. Ramanujan' },
-    friday: { subject: 'CoE Hands-on Project Lab', code: 'CS306', room: 'CoE Main Hub', faculty: 'Team Instructors' },
-  },
-  {
-    time: '01:30 PM - 03:30 PM',
-    monday: { subject: 'CoE AI & Robotics Lab', code: 'LAB301', room: 'CoE Robotics Lab', faculty: 'Dr. V. Gupta' },
-    tuesday: { subject: 'Cloud Infrastructure Practical', code: 'LAB302', room: 'AWS Cloud Lab', faculty: 'Prof. A. Kulkarni' },
-    wednesday: { subject: 'Cybersecurity SOC Practicum', code: 'LAB303', room: 'Cyber SOC Center', faculty: 'Dr. P. Sharma' },
-    thursday: { subject: 'VLSI Chip Design Simulation', code: 'LAB304', room: 'VLSI CAD Suite', faculty: 'Dr. M. Roy' },
-    friday: { subject: 'Weekly Capstone Seminar', code: 'SEM301', room: 'Auditorium A', faculty: 'Department Chair' },
-  },
-];
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as const;
+
+function formatTimeRange(startTime: string): string {
+  const [hour, minute] = startTime.split(':').map(Number);
+  const endMinutes = hour * 60 + minute + 60;
+  const endHour = Math.floor(endMinutes / 60) % 24;
+  const endMinute = endMinutes % 60;
+  const to12Hour = (h: number, m: number): string => {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+  };
+  return `${to12Hour(hour, minute)} - ${to12Hour(endHour, endMinute)}`;
+}
 
 export default function TimetablePage() {
   const [department, setDepartment] = useState('Computer Science');
   const [batch, setBatch] = useState('Batch 2022-2026');
+  const [events, setEvents] = useState<ShowcaseTimetableEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [liveData, setLiveData] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const fetched = await showcaseApi.getTimetable();
+        setEvents(fetched);
+        setLiveData(true);
+      } catch {
+        // Backend error; keep mock/empty state.
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const grid = useMemo<TimeSlot[]>(() => {
+    const uniqueStarts = Array.from(new Set(events.map((e) => e.startTime)))
+      .filter((start) => {
+        const hour = parseInt(start.slice(0, 2), 10);
+        return hour >= 8 && hour < 18;
+      })
+      .sort((a, b) => a.localeCompare(b));
+
+    return uniqueStarts.map((start) => {
+      const row: TimeSlot = { time: formatTimeRange(start) };
+      WEEKDAYS.forEach((day, index) => {
+        const event = events.find((e) => e.startTime === start && e.dayIndex === index + 1);
+        if (event) {
+          row[day] = { subject: event.subject, code: event.code, room: event.room, faculty: event.faculty };
+        }
+      });
+      return row;
+    });
+  }, [events]);
 
   return (
     <div className="space-y-6">
@@ -60,12 +78,22 @@ export default function TimetablePage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Timetable' }]}
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      {/* Live API Status Banner */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
         <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Timetable API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/timetable</code>) is pending implementation by Member 3. Operating in client-side preview mode.
+          {loading ? (
+            'Loading live timetable from backend...'
+          ) : liveData ? (
+            <>
+              <span className="font-bold">Live API Data: </span>
+              GET /api/v1/timetable connected. Showing {events.length} scheduled sessions.
+            </>
+          ) : (
+            <>
+              <span className="font-bold">Offline Preview Mode: </span>
+              Backend unreachable; showing local preview data.
+            </>
+          )}
         </div>
       </div>
 
@@ -117,7 +145,14 @@ export default function TimetablePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {TIMETABLE_SLOTS.map((slot) => (
+              {grid.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-10 px-4 text-center text-slate-400 italic">
+                    No sessions scheduled.
+                  </td>
+                </tr>
+              )}
+              {grid.map((slot) => (
                 <tr key={slot.time} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-4 font-bold text-slate-700 bg-slate-50/80 border-r border-slate-200">
                     <div className="flex items-center space-x-1.5 text-indigo-600 mb-0.5">

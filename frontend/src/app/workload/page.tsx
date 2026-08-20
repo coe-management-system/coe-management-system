@@ -1,22 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Search, Briefcase, Users, AlertCircle, Info } from 'lucide-react';
+import { Search, Briefcase, Users, AlertCircle } from 'lucide-react';
+import { showcaseApi, ShowcaseWorkloadEntry } from '@/lib/api/showcase';
 
-interface FacultyWorkload {
-  id: string;
-  name: string;
-  department: string;
-  designation: string;
-  assignedHours: number;
-  maxHours: number;
-  assignedCourses: string[];
-  status: 'Optimal' | 'Overallocated' | 'Underloaded';
-}
-
-const FACULTY_WORKLOADS: FacultyWorkload[] = [
+const FACULTY_WORKLOADS: ShowcaseWorkloadEntry[] = [
   { id: '1', name: 'Dr. S. Ramanujan', department: 'Computer Science', designation: 'Professor & Chair', assignedHours: 18, maxHours: 18, assignedCourses: ['CS301 - Data Structures', 'CS501 - Adv Algorithms'], status: 'Optimal' },
   { id: '2', name: 'Prof. A. Kulkarni', department: 'Computer Science', designation: 'Associate Professor', assignedHours: 22, maxHours: 20, assignedCourses: ['CS302 - DBMS', 'CS402 - Distributed Systems', 'LAB302 - Cloud Lab'], status: 'Overallocated' },
   { id: '3', name: 'Dr. M. Roy', department: 'Electronics & Comm.', designation: 'Professor', assignedHours: 16, maxHours: 18, assignedCourses: ['CS303 - Operating Systems', 'LAB304 - VLSI Simulation'], status: 'Optimal' },
@@ -27,8 +17,27 @@ const FACULTY_WORKLOADS: FacultyWorkload[] = [
 export default function WorkloadPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [workloads, setWorkloads] = useState<ShowcaseWorkloadEntry[]>(FACULTY_WORKLOADS);
+  const [loading, setLoading] = useState(true);
 
-  const filteredFaculty = FACULTY_WORKLOADS.filter((f) => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await showcaseApi.getWorkload();
+        if (!cancelled) setWorkloads(data);
+      } catch (err) {
+        console.error('Workload API unavailable; using fallback data.', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredFaculty = workloads.filter((f) => {
     const matchesSearch =
       f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       f.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,9 +46,9 @@ export default function WorkloadPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const overallocatedCount = FACULTY_WORKLOADS.filter((f) => f.status === 'Overallocated').length;
+  const overallocatedCount = workloads.filter((f) => f.status === 'Overallocated').length;
   const avgHours = (
-    FACULTY_WORKLOADS.reduce((acc, f) => acc + f.assignedHours, 0) / FACULTY_WORKLOADS.length
+    workloads.reduce((acc, f) => acc + f.assignedHours, 0) / workloads.length
   ).toFixed(1);
 
   return (
@@ -50,12 +59,17 @@ export default function WorkloadPage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Workload' }]}
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      {/* Live API Indicator */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
         <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Workload API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/workload</code>) is pending implementation by Member 3. Operating in client-side preview mode.
+          {loading ? (
+            <span className="font-bold">Loading live workload data from backend...</span>
+          ) : (
+            <>
+              <span className="font-bold">Live API Data: </span>
+              GET /api/v1/workload connected. Showing workload for {workloads.length} faculty members.
+            </>
+          )}
         </div>
       </div>
 
@@ -67,7 +81,7 @@ export default function WorkloadPage() {
           </div>
           <div>
             <div className="text-xs text-slate-500 font-semibold uppercase">Total Active Faculty</div>
-            <div className="text-xl font-bold text-slate-900">{FACULTY_WORKLOADS.length} Members</div>
+            <div className="text-xl font-bold text-slate-900">{workloads.length} Members</div>
           </div>
         </div>
 

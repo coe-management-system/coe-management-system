@@ -1,37 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Search, Filter, AlertTriangle, CalendarCheck, CheckCircle2, Info } from 'lucide-react';
-
-interface AttendanceRecord {
-  id: string;
-  studentName: string;
-  rollNo: string;
-  department: string;
-  batch: string;
-  totalClasses: number;
-  attended: number;
-  percentage: number;
-  status: 'Sufficient' | 'Deficient' | 'Critical';
-}
-
-const INITIAL_ATTENDANCE: AttendanceRecord[] = [
-  { id: '1', studentName: 'Aarav Sharma', rollNo: '2026-CSE-001', department: 'Computer Science', batch: '2022-2026', totalClasses: 120, attended: 110, percentage: 91.6, status: 'Sufficient' },
-  { id: '2', studentName: 'Ananya Verma', rollNo: '2026-CSE-002', department: 'Computer Science', batch: '2022-2026', totalClasses: 120, attended: 82, percentage: 68.3, status: 'Deficient' },
-  { id: '3', studentName: 'Rohan Gupta', rollNo: '2026-ECE-005', department: 'Electronics & Comm.', batch: '2022-2026', totalClasses: 115, attended: 104, percentage: 90.4, status: 'Sufficient' },
-  { id: '4', studentName: 'Priya Nair', rollNo: '2026-ME-012', department: 'Mechanical Eng.', batch: '2022-2026', totalClasses: 110, attended: 70, percentage: 63.6, status: 'Critical' },
-  { id: '5', studentName: 'Vikram Singh', rollNo: '2026-EE-008', department: 'Electrical Eng.', batch: '2022-2026', totalClasses: 118, attended: 98, percentage: 83.0, status: 'Sufficient' },
-  { id: '6', studentName: 'Sneha Patel', rollNo: '2026-CSE-019', department: 'Computer Science', batch: '2022-2026', totalClasses: 120, attended: 74, percentage: 61.6, status: 'Critical' },
-];
+import { Search, Filter, AlertTriangle, CalendarCheck, CheckCircle2 } from 'lucide-react';
+import { showcaseApi, ShowcaseAttendanceItem } from '@/lib/api/showcase';
 
 export default function AttendancePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [records, setRecords] = useState<ShowcaseAttendanceItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredAttendance = INITIAL_ATTENDANCE.filter((item) => {
+  useEffect(() => {
+    let cancelled = false;
+    showcaseApi
+      .getAttendanceOverview()
+      .then((data) => {
+        if (!cancelled) setRecords(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load attendance data:', err);
+          setRecords([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredAttendance = records.filter((item) => {
     const matchesSearch =
       item.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.rollNo.toLowerCase().includes(searchQuery.toLowerCase());
@@ -40,10 +43,10 @@ export default function AttendancePage() {
     return matchesSearch && matchesDept && matchesStatus;
   });
 
-  const totalStudents = INITIAL_ATTENDANCE.length;
-  const deficientCount = INITIAL_ATTENDANCE.filter((i) => i.status !== 'Sufficient').length;
+  const totalStudents = records.length;
+  const deficientCount = records.filter((i) => i.status !== 'Sufficient').length;
   const avgAttendance = (
-    INITIAL_ATTENDANCE.reduce((acc, curr) => acc + curr.percentage, 0) / totalStudents
+    records.reduce((acc, curr) => acc + curr.percentage, 0) / totalStudents
   ).toFixed(1);
 
   return (
@@ -54,12 +57,20 @@ export default function AttendancePage() {
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Attendance' }]}
       />
 
-      {/* Backend Dependency Banner */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-3 text-xs text-amber-800">
-        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+      {/* Live API Status */}
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3 text-xs text-emerald-800">
         <div>
-          <span className="font-bold">Backend Dependency Notice: </span>
-          The live Attendance API (<code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">GET /api/v1/attendance</code>) is pending implementation by Member 1. Operating in client-side preview mode.
+          {loading ? (
+            <span>
+              <span className="font-bold">Live API Data: </span>
+              Connecting to GET /api/v1/attendance/overview...
+            </span>
+          ) : (
+            <span>
+              <span className="font-bold">Live API Data: </span>
+              GET /api/v1/attendance/overview connected. Showing {records.length} students.
+            </span>
+          )}
         </div>
       </div>
 

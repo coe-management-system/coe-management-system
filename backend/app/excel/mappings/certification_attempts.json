@@ -1,0 +1,23 @@
+{
+  "id": [
+    "id", "attempt_id", "attempt id"
+  ],
+  "student_id": [
+    "student_id", "student id", "student", "admission_id", "admission id"
+  ],
+  "certification_id": [
+    "certification_id", "certification id", "cert_id", "certificate_id"
+  ],
+  "registered_at": [
+    "registered_at", "registered at", "registration_date", "registration date", "registered_on"
+  ],
+  "attempted_at": [
+    "attempted_at", "attempted at", "attempt_date", "attempt date", "exam_date", "exam date"
+  ],
+  "status": [
+    "status", "result", "outcome"
+  ],
+  "score": [
+    "score", "marks", "percentage", "grade"
+  ]
+}
